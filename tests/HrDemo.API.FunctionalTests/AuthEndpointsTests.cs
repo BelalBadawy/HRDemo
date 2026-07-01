@@ -6,6 +6,8 @@ using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using HrDemo.Application.Abstractions.Identity;
 using HrDemo.Application.Features.Authentication.Commands.Register;
+using HrDemo.Application.Features.Authentication.Commands.Login;
+using HrDemo.Application.Features.Authentication.Dtos;
 using HrDemo.Application.Common.Results;
 using Xunit;
 using FluentAssertions;
@@ -81,5 +83,70 @@ public sealed class AuthEndpointsTests : IClassFixture<WebApplicationFactory<Pro
         result!.Success.Should().BeFalse();
         result.Status.Should().Be(ResultStatus.ValidationError);
         result.Errors.Should().ContainKey(nameof(command.UserName));
+    }
+
+    [Fact]
+    public async Task GivenValidLogin_WhenPosted_ShouldReturnOk()
+    {
+        // Arrange
+        var userManagerMock = Substitute.For<IUserManager>();
+        var expectedResponse = new LoginResponseDto
+        {
+            AccessToken = "valid-access-token",
+            RefreshToken = "valid-refresh-token"
+        };
+        userManagerMock.LoginAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(ResponseResult<LoginResponseDto>.SuccessResult(expectedResponse, "Login successful."));
+
+        var client = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureTestServices(services =>
+            {
+                services.AddScoped(_ => userManagerMock);
+            });
+        }).CreateClient();
+
+        var command = new LoginCommand("testuser", "Password123!");
+
+        // Act
+        var response = await client.PostAsJsonAsync(new Uri("/api/v1/auth/login", UriKind.Relative), command);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var result = await response.Content.ReadFromJsonAsync<ResponseResult<LoginResponseDto>>();
+        result.Should().NotBeNull();
+        result!.Success.Should().BeTrue();
+        result.Data.Should().NotBeNull();
+        result.Data!.AccessToken.Should().Be("valid-access-token");
+        result.Data.RefreshToken.Should().Be("valid-refresh-token");
+    }
+
+    [Fact]
+    public async Task GivenInvalidLogin_WhenPosted_ShouldReturnUnauthorized()
+    {
+        // Arrange
+        var userManagerMock = Substitute.For<IUserManager>();
+        userManagerMock.LoginAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(ResponseResult<LoginResponseDto>.FailureResult(ResultStatus.Unauthorized, "Invalid credentials.", 401));
+
+        var client = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureTestServices(services =>
+            {
+                services.AddScoped(_ => userManagerMock);
+            });
+        }).CreateClient();
+
+        var command = new LoginCommand("testuser", "WrongPassword");
+
+        // Act
+        var response = await client.PostAsJsonAsync(new Uri("/api/v1/auth/login", UriKind.Relative), command);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        var result = await response.Content.ReadFromJsonAsync<ResponseResult<LoginResponseDto>>();
+        result.Should().NotBeNull();
+        result!.Success.Should().BeFalse();
+        result.Status.Should().Be(ResultStatus.Unauthorized);
     }
 }

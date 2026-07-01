@@ -89,11 +89,11 @@ This plan details the task breakdown for scaffolding a complete, buildable, and 
 #### Task 4: JWT Generation and Login Flow
 - **Description**: Implement the `JwtTokenGenerator` in the infrastructure layer. Securely load parameters from configuration. Add Login CQRS Command and the endpoint `/api/v1/auth/login`. Set up JWT bearer authentication options in `Program.cs` with zero clock skew.
 - **Acceptance criteria**:
-  - [ ] Valid credentials return an access token and a refresh token.
-  - [ ] Secrets (signing keys, etc.) are sourced from configuration, not code.
-  - [ ] Invalid credentials return 401 Unauthorized.
+  - [x] Valid credentials return an access token and a refresh token.
+  - [x] Secrets (signing keys, etc.) are sourced from configuration, not code.
+  - [x] Invalid credentials return 401 Unauthorized.
 - **Verification**:
-  - [ ] Test verifying that login produces valid JWT token with user claim details.
+  - [x] Test verifying that login produces valid JWT token with user claim details.
 - **Dependencies**: Task 3
 - **Files likely touched**:
   - `src/HrDemo.Application/Abstractions/Authentication/IJwtTokenGenerator.cs`
@@ -104,8 +104,8 @@ This plan details the task breakdown for scaffolding a complete, buildable, and 
 - **Estimated scope**: Medium (5-6 files)
 
 #### Checkpoint: Authentication Core
-- [ ] User can register and log in via the HTTP endpoints.
-- [ ] Database updates audit fields automatically during registration.
+- [x] User can register and log in via the HTTP endpoints.
+- [x] Database updates audit fields automatically during registration.
 
 ---
 

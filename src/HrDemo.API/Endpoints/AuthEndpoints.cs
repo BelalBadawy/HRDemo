@@ -1,6 +1,7 @@
 using Mediator;
 using HrDemo.API.Extensions;
 using HrDemo.Application.Features.Authentication.Commands.Register;
+using HrDemo.Application.Features.Authentication.Commands.Login;
 
 namespace HrDemo.API.Endpoints;
 
@@ -16,6 +17,13 @@ public static class AuthEndpoints
             return result.ToHttpResult();
         })
         .WithName("RegisterUser");
+
+        group.MapPost("/login", async (LoginCommand command, ISender sender, CancellationToken cancellationToken) =>
+        {
+            var result = await sender.Send(command, cancellationToken);
+            return result.ToHttpResult();
+        })
+        .WithName("LoginUser");
 
         return app;
     }
