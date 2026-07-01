@@ -69,11 +69,11 @@ This plan details the task breakdown for scaffolding a complete, buildable, and 
 #### Task 3: Base Entities, Database Persistence, and User Registration
 - **Description**: Implement `BaseEntity`, `BaseAuditableEntity`, and `ApplicationUser`. Setup `IApplicationDbContext` and `ApplicationDbContext` with auditing interception. Implement `RegisterCommand` handler, validator, and endpoint (`/api/v1/auth/register`).
 - **Acceptance criteria**:
-  - [ ] `RegisterCommand` validates input and registers the user.
-  - [ ] Audit fields (`CreatedAt`, `CreatedBy`) are populated automatically via interceptor.
-  - [ ] Duplicate registrations are rejected and return a 409 Conflict.
+  - [x] `RegisterCommand` validates input and registers the user.
+  - [x] Audit fields (`CreatedAt`, `CreatedBy`) are populated automatically via interceptor.
+  - [x] Duplicate registrations are rejected and return a 409 Conflict.
 - **Verification**:
-  - [ ] Tests verify registration success, validation failures, and database persistence.
+  - [x] Tests verify registration success, validation failures, and database persistence.
 - **Dependencies**: Task 2
 - **Files likely touched**:
   - `src/HrDemo.Domain/Common/BaseEntity.cs`

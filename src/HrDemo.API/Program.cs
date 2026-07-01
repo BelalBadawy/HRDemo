@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
 using HrDemo.API.Middleware;
+using HrDemo.API.Endpoints;
 using HrDemo.Application;
 using HrDemo.Infrastructure;
 using HrDemo.Infrastructure.Persistence;
@@ -12,7 +13,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services
     .AddApplicationServices()
     .AddInfrastructureServices(builder.Configuration)
-    .AddMediator();
+    .AddMediator(options =>
+    {
+        options.ServiceLifetime = Microsoft.Extensions.DependencyInjection.ServiceLifetime.Scoped;
+    });
 
 builder.Services.AddResponseCompression();
 builder.Services.AddControllers();
@@ -63,6 +67,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapAuthEndpoints();
 
 // Map Health Checks
 app.MapHealthChecks("/health/live", new HealthCheckOptions

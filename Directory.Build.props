@@ -9,7 +9,7 @@
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <WarningsAsErrors>nullable</WarningsAsErrors>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-    <NoWarn>$(NoWarn);CA1000;CA1724;NU1903;NU1510;CA1515;CA1869;CA1848;MA0004;CA2007;CA1031;MA0006;CA1062;CA1707</NoWarn>
+    <NoWarn>$(NoWarn);CA1000;CA1724;NU1903;NU1510;CA1515;CA1869;CA1848;MA0004;CA2007;CA1031;MA0006;CA1062;CA1707;CA1040;CA1873;MA0002;CA1305;MA0011;CA1860;MSG0005</NoWarn>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(MSBuildProjectExtension)' == '.csproj'">

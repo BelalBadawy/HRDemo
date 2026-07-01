@@ -8,6 +8,10 @@ public class ResponseResult
     public int StatusCode { get; init; }
     public IDictionary<string, string[]>? Errors { get; init; }
 
+    public ResponseResult()
+    {
+    }
+
     protected ResponseResult(bool success, ResultStatus status, int statusCode, string? message = null, IDictionary<string, string[]>? errors = null)
     {
         Success = success;
@@ -27,6 +31,10 @@ public class ResponseResult
 public class ResponseResult<T> : ResponseResult
 {
     public T? Data { get; init; }
+
+    public ResponseResult() : base()
+    {
+    }
 
     private ResponseResult(bool success, T? data, ResultStatus status, int statusCode, string? message = null, IDictionary<string, string[]>? errors = null)
         : base(success, status, statusCode, message, errors)
