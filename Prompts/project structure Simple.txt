@@ -1,0 +1,252 @@
+# AI Agent Prompt — ASP.NET Core 10 Clean Architecture Bootstrap
+
+Use this as the **first prompt** you give to your AI coding agent (Claude Code, Cursor, etc.). It sets up the skeleton only. Once the agent finishes, you confirm/review, then move on to feature prompts (examples included at the bottom).
+
+---
+
+## PROMPT TO PASTE
+
+```
+You are setting up a new ASP.NET Core 10 solution using Clean Architecture
+principles. Do NOT implement any business features yet — this step is only
+about scaffolding the solution structure, projects, references, and base
+infrastructure so we can add features incrementally afterward.
+
+### Solution name
+Use "MyApp" as a placeholder solution/root namespace. I will rename it later
+if needed.
+
+### Target framework
+.NET 10 (net10.0), ASP.NET Core 10, C# latest language version, nullable
+reference types enabled, implicit usings enabled.
+
+### Hard technology decisions (do NOT deviate, do NOT ask me to reconsider)
+- Primary keys: every entity uses `int` Id (identity column), not Guid.
+- CQRS/mediator: use the **Mediator source generator** package
+  (Martin Othamar's "Mediator", NuGet package id "Mediator.SourceGenerator"
+  + "Mediator.Abstractions") — compile-time generated, no reflection.
+  Do NOT use MediatR.
+- Object mapping: manual mapping only, via static `ToDto()` /
+  `ToEntity()` extension methods (or a small `Mapper` static class per
+  feature). Do NOT install AutoMapper or Mapster.
+- Database: SQL Server via `Microsoft.EntityFrameworkCore.SqlServer`.
+- Auth: ASP.NET Core Identity, customized to use `int` as the key type
+  (`IdentityUser<int>`, `IdentityRole<int>`), with a custom
+  `ApplicationUser : IdentityUser<int>` that includes extra fields
+  (FirstName, LastName, CreatedAt, IsActive — placeholders, extend
+  later). Roles are used only as coarse grouping (e.g. "Admin",
+  "Manager", "Customer"); actual authorization decisions are driven by
+  **claims**, not roles. Authentication is JWT bearer tokens.
+- API style: **Minimal APIs only**. No Controllers, no
+  `[ApiController]`, no MVC. Organize endpoints as static classes per
+  feature, each exposing a `MapXyzEndpoints(this IEndpointRouteGroup
+  group)` or `MapXyzEndpoints(this WebApplication app)` extension
+  method, grouped under `app.MapGroup("/api/...")`.
+- Response shape: do NOT use ProblemDetails. Define a common
+  `ResponseResult<T>` wrapper (see shape below) used for every
+  endpoint response, success or failure.
+- Solution file format: use the new **`.slnx`** XML solution format
+  (`dotnet new slnx` / `dotnet sln migrate` style), not the legacy
+  `.sln` file.
+
+### ResponseResult<T> contract
+Define in Application/Common/Models:
+```
+public class ResponseResult<T>
+{
+    public bool Success { get; init; }
+    public T? Data { get; init; }
+    public string? Message { get; init; }
+    public List<string> Errors { get; init; } = [];
+    public int StatusCode { get; init; }
+
+    public static ResponseResult<T> Ok(T data, string? message = null);
+    public static ResponseResult<T> Fail(string message, int statusCode = 400, List<string>? errors = null);
+}
+```
+Also define a non-generic `ResponseResult` (no Data) for commands that
+return no payload (e.g. Delete). Every minimal API endpoint handler
+returns `Results.Json(result, statusCode: result.StatusCode)` or maps
+the result to the correct HTTP status — implement a small
+`ToHttpResult()` extension to keep this consistent everywhere instead
+of repeating logic in every endpoint.
+
+### Projects to create (Clean Architecture, 4 layers)
+
+1. **MyApp.Domain**
+   - Class library, no dependencies on any other project.
+   - Folders: Entities, Enums, ValueObjects, Exceptions, Events, Interfaces,
+     Common (BaseEntity with `int Id`, BaseAuditableEntity with
+     CreatedAt/CreatedBy/LastModifiedAt/LastModifiedBy, both using int
+     for any Id/foreign key references).
+   - Include a simple domain event interface and a base entity that can
+     hold a list of domain events.
+   - No EF Core, no ASP.NET Identity references here — Identity entities
+     live in Infrastructure.
+
+2. **MyApp.Application**
+   - Class library, references Domain only.
+   - Install: `Mediator.SourceGenerator` + `Mediator.Abstractions`,
+     FluentValidation, `Microsoft.Extensions.Logging.Abstractions`.
+   - Folders: Common/Interfaces, Common/Behaviors (Mediator pipeline
+     equivalent — this library calls them "Pipeline Behaviors" too,
+     confirm exact API against the installed package version),
+     Common/Models (ResponseResult<T>, PaginatedList<T>),
+     Common/Mapping (manual mapping extension method conventions),
+     Features (empty — CQRS commands/queries per feature go here
+     later, e.g. Features/Products/Commands/CreateProduct).
+   - Implement validation, logging, and unhandled-exception pipeline
+     behaviors using the Mediator library's pipeline behavior
+     interface (verify exact interface name/signature for the
+     installed version rather than assuming it matches MediatR's
+     `IPipelineBehavior`).
+   - Define interfaces here that Infrastructure will implement, e.g.
+     `IApplicationDbContext`, `ICurrentUserService` (exposes UserId as
+     int, Roles, Claims), `IDateTimeProvider`, `IJwtTokenGenerator`.
+   - Add a `DependencyInjection.cs` static class exposing
+     `AddApplicationServices(this IServiceCollection services)`,
+     including the Mediator registration call for this assembly.
+
+3. **MyApp.Infrastructure**
+   - Class library, references Application (and transitively Domain).
+   - Install: `Microsoft.EntityFrameworkCore`,
+     `Microsoft.EntityFrameworkCore.SqlServer`,
+     `Microsoft.EntityFrameworkCore.Design`,
+     `Microsoft.AspNetCore.Identity.EntityFrameworkCore`,
+     `Microsoft.AspNetCore.Authentication.JwtBearer`.
+   - Folders: Persistence (DbContext, Configurations, Migrations,
+     Interceptors), Identity (ApplicationUser, ApplicationRole, the
+     IdentityDbContext setup, claims-based authorization handlers),
+     Services (DateTimeProvider, JwtTokenGenerator implementations).
+   - `ApplicationDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, int>,
+     IApplicationDbContext` — all Identity tables keyed on int.
+   - Use `IEntityTypeConfiguration<T>` pattern for entity configs, not
+     inline `OnModelCreating` mapping, including Identity entity
+     configs if customization is needed.
+   - Add a `SaveChangesInterceptor` (or override `SaveChangesAsync`) to
+     auto-populate audit fields and dispatch domain events.
+   - Implement `IJwtTokenGenerator`: issues JWT with standard claims
+     (sub, name, etc.) plus all of the user's claims pulled from
+     `UserManager.GetClaimsAsync` and role claims — roles go in as a
+     "role" grouping claim, but permission checks elsewhere should be
+     done via specific permission claims (e.g.
+     `permission:products.create`), not role names. Set up a
+     `[Authorize(Policy = "...")]`-free pattern compatible with Minimal
+     API's `.RequireAuthorization(...)` — define a small policy
+     provider or `IAuthorizationRequirement` per permission claim so
+     endpoints can do
+     `.RequireAuthorization("products.create")`.
+   - Add a `DependencyInjection.cs` static class exposing
+     `AddInfrastructureServices(this IServiceCollection services,
+     IConfiguration configuration)`, including DbContext registration,
+     Identity registration (`AddIdentityCore<ApplicationUser>` +
+     `AddRoles<ApplicationRole>` + `AddEntityFrameworkStores`), and JWT
+     bearer authentication setup (issuer/audience/key from
+     configuration, validated).
+
+4. **MyApp.Web**
+   - ASP.NET Core Web API project (Minimal API only — do not scaffold
+     Controllers), references Application and Infrastructure only
+     (never Domain directly, never EF Core directly in endpoint
+     handlers).
+   - Minimal hosting model (Program.cs).
+   - Configure: Swagger/OpenAPI (verify current ASP.NET Core 10
+     recommended approach — built-in `AddOpenApi()` vs Swashbuckle —
+     instead of assuming), a global exception-handling middleware that
+     catches unhandled exceptions and returns a `ResponseResult`
+     (status 500) instead of ProblemDetails, JWT bearer authentication
+     + authorization wired up, CORS policy placeholder, a `/health`
+     health check endpoint also wrapped in `ResponseResult` if
+     reasonable.
+   - Endpoint organization: one static class per feature area under
+     `Endpoints/`, e.g. `Endpoints/AuthEndpoints.cs`,
+     `Endpoints/ProductEndpoints.cs` (empty placeholder for now besides
+     Auth), each with a `Map...Endpoints` extension method called from
+     Program.cs. Use endpoint groups (`MapGroup`) with shared route
+     prefix and shared `.RequireAuthorization()` where relevant.
+   - Implement the Auth feature now (since it's foundational, not a
+     "business feature"): register, login (issues JWT), refresh
+     token endpoint (stub acceptable), assign-role endpoint, and
+     assign-claim endpoint — all returning `ResponseResult<T>`.
+   - Wire up `builder.Services.AddApplicationServices()` and
+     `.AddInfrastructureServices(builder.Configuration)` from
+     Program.cs, plus `app.UseAuthentication()` /
+     `app.UseAuthorization()` in the correct order.
+
+### Test projects (create empty except one placeholder passing test each)
+   - MyApp.Domain.UnitTests
+   - MyApp.Application.UnitTests
+   - MyApp.Infrastructure.IntegrationTests
+   - MyApp.Web.FunctionalTests (WebApplicationFactory-based)
+   - Use xUnit, FluentAssertions. Ask me whether I want NSubstitute or
+     Moq for mocking before installing either — that's the only open
+     choice left.
+
+### Solution-wide setup
+- Create a **`.slnx`** file (new XML-based solution format) referencing
+  all projects above in a logical folder structure (`src/` for the 4
+  main projects, `tests/` for test projects). If your tooling/SDK
+  version doesn't yet support generating `.slnx` directly, generate a
+  normal `.sln` first and then convert it (`dotnet sln migrate` or
+  equivalent current command) and delete the `.sln` afterward — verify
+  the exact current command for the installed SDK rather than
+  assuming.
+- Add a `Directory.Build.props` at the root to centralize: LangVersion,
+  Nullable, ImplicitUsings, TreatWarningsAsErrors (off for now).
+- Add a `Directory.Packages.props` for central package management with
+  all package versions pinned there.
+- Add a `.editorconfig` with standard C# conventions.
+- Add a `.gitignore` appropriate for .NET.
+- Add a `README.md` explaining the layer structure, the dependency
+  rule (Domain has no dependencies; Application depends only on
+  Domain; Infrastructure depends on Application; Web depends on
+  Application + Infrastructure), the auth model (JWT + Identity with
+  int keys, roles as coarse grouping, claims as the real permission
+  mechanism), and how to run the project locally including the
+  connection string setup and applying EF Core migrations.
+- Make sure `dotnet build` succeeds with zero errors and zero warnings
+  before you consider this task done.
+
+### Rules while doing this
+- Do not ask me to reconsider any of the "hard technology decisions"
+  above (int IDs, Mediator source generator, manual mapping, SQL
+  Server, Identity+JWT+claims, Minimal APIs, ResponseResult<T>, .slnx)
+  — those are final.
+- The only open question you may ask me is NSubstitute vs Moq for
+  test mocking.
+- Do not create any actual domain entities beyond what's needed for
+  Identity/Auth (e.g. don't add Product, Order, etc.) — we'll add the
+  real domain model in the next prompt once this skeleton is verified.
+- After scaffolding, give me a tree view of the resulting folder/file
+  structure and a short summary of every NuGet package you installed
+  and why.
+- Run `dotnet build` and `dotnet test` at the end and paste the output.
+```
+
+---
+
+## How to use this
+
+1. Paste the prompt above into your AI coding agent in an empty repo/folder.
+2. Answer the one remaining question (NSubstitute vs Moq).
+3. Review the generated structure and run `dotnet build` yourself to confirm.
+4. Commit this as your baseline before adding any feature.
+
+## Suggested next prompts (for later steps)
+
+Once the skeleton is confirmed working:
+
+1. "Add a `Product` entity to Domain with EF Core configuration, then implement the first CQRS feature: CreateProduct command + GetProductById query using the Mediator source generator, FluentValidation validator, manual mapping to a `ProductDto`, and a Minimal API endpoint group returning `ResponseResult<T>`. Protect the create endpoint with `.RequireAuthorization("products.create")`."
+2. "Add a permission-seeding mechanism: a fixed list of permission claims in code, seeded into specific roles on startup/migration (e.g. Admin gets all, Manager gets a subset)."
+3. "Add refresh token persistence (currently stubbed) with rotation and revocation."
+4. "Add structured logging with Serilog, and OpenTelemetry tracing."
+5. "Set up Dockerfile + docker-compose for local dev (API + SQL Server)."
+6. "Add the EF Core migrations workflow and a seed-data mechanism for development (default admin user, default roles/permissions)."
+
+---
+
+### Notes
+
+- **Mediator (source generator) vs MediatR**: confirm the exact package id and pipeline-behavior interface name against whatever version the agent resolves at install time — the source-generator library's API has evolved across versions, and the agent's training data may lag the latest release.
+- **`.slnx`**: this format is new; if the installed SDK/tooling can't produce it yet, have the agent fall back gracefully and tell you instead of silently using `.sln`.
+- **Claims vs roles**: roles stay coarse (3-5 max) purely for grouping/UX; every actual `[RequireAuthorization]` check should reference a specific permission claim so authorization stays granular and not tied to role names.
