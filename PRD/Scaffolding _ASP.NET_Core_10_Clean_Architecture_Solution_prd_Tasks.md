@@ -154,10 +154,10 @@ This plan details the task breakdown for scaffolding a complete, buildable, and 
 #### Task 7: Authorization Behavior & Permission-Based Gating
 - **Description**: Build the claims-based permission authorization handler. Implement `AuthorizationBehavior` within the mediator pipeline. Setup endpoints to require authorization policies (e.g. `/api/v1/auth/assign-role`).
 - **Acceptance criteria**:
-  - [ ] `AuthorizationBehavior` short-circuits execution before validation behavior runs for unauthorized requests.
-  - [ ] AssignRole and AssignClaim endpoints update identity claims correctly.
+  - [x] `AuthorizationBehavior` short-circuits execution before validation behavior runs for unauthorized requests.
+  - [x] AssignRole and AssignClaim endpoints update identity claims correctly.
 - **Verification**:
-  - [ ] Test verifying validator bypass and early rejection of unauthorized mediator requests.
+  - [x] Test verifying validator bypass and early rejection of unauthorized mediator requests.
 - **Dependencies**: Task 4
 - **Files likely touched**:
   - `src/HrDemo.Application/Common/Behaviors/AuthorizationBehavior.cs`

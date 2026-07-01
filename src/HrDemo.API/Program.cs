@@ -21,6 +21,12 @@ builder.Services
 builder.Services.AddResponseCompression();
 builder.Services.AddControllers();
 
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("roles.assign", policy => policy.RequireClaim("permission", "roles.assign"));
+    options.AddPolicy("claims.assign", policy => policy.RequireClaim("permission", "claims.assign"));
+});
+
 // Health checks configuration
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<ApplicationDbContext>("DatabaseReady");

@@ -9,6 +9,10 @@ using HrDemo.Application.Features.Authentication.Commands.Register;
 using HrDemo.Application.Features.Authentication.Commands.Login;
 using HrDemo.Application.Features.Authentication.Commands.Refresh;
 using HrDemo.Application.Features.Authentication.Commands.Logout;
+using HrDemo.Application.Features.Authentication.Commands.AssignRole;
+using HrDemo.Application.Features.Authentication.Commands.AssignClaim;
+using HrDemo.Application.Abstractions.Authentication;
+using System.Security.Claims;
 using HrDemo.Application.Features.Authentication.Dtos;
 using HrDemo.Application.Common.Results;
 using Xunit;
@@ -208,6 +212,54 @@ public sealed class AuthEndpointsTests : IClassFixture<WebApplicationFactory<Pro
 
         // Act
         var response = await client.PostAsJsonAsync(new Uri("/api/v1/auth/logout", UriKind.Relative), command);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var result = await response.Content.ReadFromJsonAsync<ResponseResult>();
+        result.Should().NotBeNull();
+        result!.Success.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GivenAnonymousUser_WhenAssignRoleCalled_ShouldReturnUnauthorized()
+    {
+        // Arrange
+        var client = _factory.CreateClient();
+        var command = new AssignRoleCommand(1, "Admin");
+
+        // Act
+        var response = await client.PostAsJsonAsync(new Uri("/api/v1/auth/assign-role", UriKind.Relative), command);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GivenAuthorizedUser_WhenAssignRoleCalled_ShouldReturnOk()
+    {
+        // Arrange
+        var userManagerMock = Substitute.For<IUserManager>();
+        userManagerMock.AddToRoleAsync(Arg.Any<int>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(ResponseResult.SuccessResult("Role assigned."));
+
+        var client = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureTestServices(services =>
+            {
+                services.AddScoped(_ => userManagerMock);
+            });
+        }).CreateClient();
+
+        using var scope = _factory.Services.CreateScope();
+        var tokenGenerator = scope.ServiceProvider.GetRequiredService<IJwtTokenGenerator>();
+        var claims = new[] { new Claim("permission", "roles.assign") };
+        var token = tokenGenerator.GenerateToken(1, "AdminUser", claims);
+
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        var command = new AssignRoleCommand(1, "Admin");
+
+        // Act
+        var response = await client.PostAsJsonAsync(new Uri("/api/v1/auth/assign-role", UriKind.Relative), command);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
