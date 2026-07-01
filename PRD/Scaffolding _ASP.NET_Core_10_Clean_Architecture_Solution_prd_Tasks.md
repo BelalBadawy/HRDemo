@@ -114,11 +114,11 @@ This plan details the task breakdown for scaffolding a complete, buildable, and 
 #### Task 5: Single Refresh Token Policy & Concurrency Rotation
 - **Description**: Scaffold the `RefreshToken` entity (1-to-1 relationship with `ApplicationUser` using `UserId` as PK/FK and `RowVersion` for concurrency). Implement the hashing logic for refresh tokens (SHA256). Add the Refresh command/endpoint. Implement rate-limiting middleware on auth endpoints. Catch `DbUpdateConcurrencyException` inside the handler and return a 409/401.
 - **Acceptance criteria**:
-  - [ ] Plain text refresh tokens are never persisted or logged.
-  - [ ] Rotation updates the database record atomically with new hash, JTI, and metadata.
-  - [ ] Concurrency exception on simultaneous refresh calls returns 409/401.
+  - [x] Plain text refresh tokens are never persisted or logged.
+  - [x] Rotation updates the database record atomically with new hash, JTI, and metadata.
+  - [x] Concurrency exception on simultaneous refresh calls returns 409/401.
 - **Verification**:
-  - [ ] Concurrency tests simulating simultaneous refresh requests map correctly to non-500 errors.
+  - [x] Concurrency tests simulating simultaneous refresh requests map correctly to non-500 errors.
 - **Dependencies**: Task 4
 - **Files likely touched**:
   - `src/HrDemo.Infrastructure/Identity/RefreshToken.cs`
@@ -132,10 +132,10 @@ This plan details the task breakdown for scaffolding a complete, buildable, and 
 #### Task 6: Session Revocation & Logout
 - **Description**: Implement the Logout CQRS Command and API endpoint `/api/v1/auth/logout` to delete the refresh token row.
 - **Acceptance criteria**:
-  - [ ] Successful logout removes the user's refresh token row.
-  - [ ] Subsequent refresh attempts using the revoked token return 401.
+  - [x] Successful logout removes the user's refresh token row.
+  - [x] Subsequent refresh attempts using the revoked token return 401.
 - **Verification**:
-  - [ ] Functional test target logout, checking database state and verification of revoked token failures.
+  - [x] Functional test target logout, checking database state and verification of revoked token failures.
 - **Dependencies**: Task 5
 - **Files likely touched**:
   - `src/HrDemo.Application/Features/Authentication/Commands/Logout/...`
@@ -144,8 +144,8 @@ This plan details the task breakdown for scaffolding a complete, buildable, and 
 - **Estimated scope**: Small (3 files)
 
 #### Checkpoint: Session Management
-- [ ] Hashed token rotation defends against concurrent request races.
-- [ ] Logout invalidates the session completely.
+- [x] Hashed token rotation defends against concurrent request races.
+- [x] Logout invalidates the session completely.
 
 ---
 

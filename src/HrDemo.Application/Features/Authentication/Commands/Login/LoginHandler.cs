@@ -16,6 +16,6 @@ public sealed class LoginHandler : IRequestHandler<LoginCommand, ResponseResult<
 
     public async ValueTask<ResponseResult<LoginResponseDto>> Handle(LoginCommand request, CancellationToken cancellationToken)
     {
-        return await _userManager.LoginAsync(request.UserNameOrEmail, request.Password, cancellationToken);
+        return await _userManager.LoginAsync(request.UserNameOrEmail, request.Password, request.IpAddress, cancellationToken);
     }
 }

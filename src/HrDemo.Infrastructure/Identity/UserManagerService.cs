@@ -12,15 +12,18 @@ public sealed class UserManagerService : IUserManager
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly RoleManager<ApplicationRole> _roleManager;
     private readonly IJwtTokenGenerator _jwtTokenGenerator;
+    private readonly IRefreshTokenService _refreshTokenService;
 
     public UserManagerService(
         UserManager<ApplicationUser> userManager,
         RoleManager<ApplicationRole> roleManager,
-        IJwtTokenGenerator jwtTokenGenerator)
+        IJwtTokenGenerator jwtTokenGenerator,
+        IRefreshTokenService refreshTokenService)
     {
         _userManager = userManager;
         _roleManager = roleManager;
         _jwtTokenGenerator = jwtTokenGenerator;
+        _refreshTokenService = refreshTokenService;
     }
 
     public async Task<ResponseResult<int>> CreateUserAsync(string userName, string email, string password, CancellationToken cancellationToken = default)
@@ -103,7 +106,7 @@ public sealed class UserManagerService : IUserManager
         return ResponseResult.SuccessResult("Claim assigned successfully.");
     }
 
-    public async Task<ResponseResult<LoginResponseDto>> LoginAsync(string userNameOrEmail, string password, CancellationToken cancellationToken = default)
+    public async Task<ResponseResult<LoginResponseDto>> LoginAsync(string userNameOrEmail, string password, string ipAddress, CancellationToken cancellationToken = default)
     {
         var user = await _userManager.FindByNameAsync(userNameOrEmail);
         if (user == null && userNameOrEmail.Contains('@', StringComparison.Ordinal))
@@ -130,7 +133,14 @@ public sealed class UserManagerService : IUserManager
         }
 
         var accessToken = _jwtTokenGenerator.GenerateToken(user.Id, user.UserName!, allClaims);
-        var refreshToken = Guid.NewGuid().ToString("N");
+        
+        // Extract JTI from JWT
+        var tokenHandler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
+        var jwtToken = tokenHandler.ReadJwtToken(accessToken);
+        var jwtId = jwtToken.Id;
+
+        // Persist refresh token
+        var refreshToken = await _refreshTokenService.CreateRefreshTokenAsync(user.Id, jwtId, ipAddress, cancellationToken);
 
         return ResponseResult<LoginResponseDto>.SuccessResult(new LoginResponseDto
         {

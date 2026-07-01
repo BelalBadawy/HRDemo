@@ -2,6 +2,9 @@ using Mediator;
 using HrDemo.API.Extensions;
 using HrDemo.Application.Features.Authentication.Commands.Register;
 using HrDemo.Application.Features.Authentication.Commands.Login;
+using HrDemo.Application.Features.Authentication.Commands.Refresh;
+using HrDemo.Application.Features.Authentication.Commands.Logout;
+using Microsoft.AspNetCore.Http;
 
 namespace HrDemo.API.Endpoints;
 
@@ -18,12 +21,29 @@ public static class AuthEndpoints
         })
         .WithName("RegisterUser");
 
-        group.MapPost("/login", async (LoginCommand command, ISender sender, CancellationToken cancellationToken) =>
+        group.MapPost("/login", async (LoginCommand command, ISender sender, HttpContext httpContext, CancellationToken cancellationToken) =>
         {
-            var result = await sender.Send(command, cancellationToken);
+            var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+            var result = await sender.Send(command with { IpAddress = ip }, cancellationToken);
             return result.ToHttpResult();
         })
         .WithName("LoginUser");
+
+        group.MapPost("/refresh", async (RefreshCommand command, ISender sender, HttpContext httpContext, CancellationToken cancellationToken) =>
+        {
+            var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+            var result = await sender.Send(command with { IpAddress = ip }, cancellationToken);
+            return result.ToHttpResult();
+        })
+        .WithName("RefreshToken");
+
+        group.MapPost("/logout", async (LogoutCommand command, ISender sender, HttpContext httpContext, CancellationToken cancellationToken) =>
+        {
+            var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+            var result = await sender.Send(command with { IpAddress = ip }, cancellationToken);
+            return result.ToHttpResult();
+        })
+        .WithName("LogoutUser");
 
         return app;
     }

@@ -30,6 +30,7 @@ public static class DependencyInjection
         services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
         services.AddScoped<IUserManager, UserManagerService>();
         services.AddSingleton<IJwtTokenGenerator, JwtTokenGenerator>();
+        services.AddScoped<IRefreshTokenService, RefreshTokenService>();
 
         // Register Interceptor
         services.AddScoped<AuditableAndDomainEventsInterceptor>();

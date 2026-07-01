@@ -74,7 +74,7 @@ public sealed class LoginTests
         };
         var successResult = ResponseResult<LoginResponseDto>.SuccessResult(expectedResponse, "Login successful.");
 
-        _userManagerMock.LoginAsync(command.UserNameOrEmail, command.Password, Arg.Any<CancellationToken>())
+        _userManagerMock.LoginAsync(command.UserNameOrEmail, command.Password, Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(successResult);
 
         // Act
@@ -94,7 +94,7 @@ public sealed class LoginTests
         var command = new LoginCommand("testuser", "WrongPassword");
         var failureResult = ResponseResult<LoginResponseDto>.FailureResult(ResultStatus.Unauthorized, "Invalid credentials.", 401);
 
-        _userManagerMock.LoginAsync(command.UserNameOrEmail, command.Password, Arg.Any<CancellationToken>())
+        _userManagerMock.LoginAsync(command.UserNameOrEmail, command.Password, Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(failureResult);
 
         // Act

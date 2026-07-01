@@ -7,6 +7,8 @@ using NSubstitute;
 using HrDemo.Application.Abstractions.Identity;
 using HrDemo.Application.Features.Authentication.Commands.Register;
 using HrDemo.Application.Features.Authentication.Commands.Login;
+using HrDemo.Application.Features.Authentication.Commands.Refresh;
+using HrDemo.Application.Features.Authentication.Commands.Logout;
 using HrDemo.Application.Features.Authentication.Dtos;
 using HrDemo.Application.Common.Results;
 using Xunit;
@@ -95,7 +97,7 @@ public sealed class AuthEndpointsTests : IClassFixture<WebApplicationFactory<Pro
             AccessToken = "valid-access-token",
             RefreshToken = "valid-refresh-token"
         };
-        userManagerMock.LoginAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+        userManagerMock.LoginAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(ResponseResult<LoginResponseDto>.SuccessResult(expectedResponse, "Login successful."));
 
         var client = _factory.WithWebHostBuilder(builder =>
@@ -126,7 +128,7 @@ public sealed class AuthEndpointsTests : IClassFixture<WebApplicationFactory<Pro
     {
         // Arrange
         var userManagerMock = Substitute.For<IUserManager>();
-        userManagerMock.LoginAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+        userManagerMock.LoginAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(ResponseResult<LoginResponseDto>.FailureResult(ResultStatus.Unauthorized, "Invalid credentials.", 401));
 
         var client = _factory.WithWebHostBuilder(builder =>
@@ -148,5 +150,69 @@ public sealed class AuthEndpointsTests : IClassFixture<WebApplicationFactory<Pro
         result.Should().NotBeNull();
         result!.Success.Should().BeFalse();
         result.Status.Should().Be(ResultStatus.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GivenValidRefreshToken_WhenPosted_ShouldReturnNewTokens()
+    {
+        // Arrange
+        var refreshTokenServiceMock = Substitute.For<IRefreshTokenService>();
+        var expectedResponse = new LoginResponseDto
+        {
+            AccessToken = "new-access-token",
+            RefreshToken = "new-refresh-token"
+        };
+        refreshTokenServiceMock.RotateTokenAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(ResponseResult<LoginResponseDto>.SuccessResult(expectedResponse, "Token refreshed."));
+
+        var client = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureTestServices(services =>
+            {
+                services.AddScoped(_ => refreshTokenServiceMock);
+            });
+        }).CreateClient();
+
+        var command = new RefreshCommand("OldRefreshToken");
+
+        // Act
+        var response = await client.PostAsJsonAsync(new Uri("/api/v1/auth/refresh", UriKind.Relative), command);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var result = await response.Content.ReadFromJsonAsync<ResponseResult<LoginResponseDto>>();
+        result.Should().NotBeNull();
+        result!.Success.Should().BeTrue();
+        result.Data.Should().NotBeNull();
+        result.Data!.AccessToken.Should().Be("new-access-token");
+        result.Data.RefreshToken.Should().Be("new-refresh-token");
+    }
+
+    [Fact]
+    public async Task GivenValidLogout_WhenPosted_ShouldReturnOk()
+    {
+        // Arrange
+        var refreshTokenServiceMock = Substitute.For<IRefreshTokenService>();
+        refreshTokenServiceMock.RevokeTokenAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(ResponseResult.SuccessResult("Logged out."));
+
+        var client = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureTestServices(services =>
+            {
+                services.AddScoped(_ => refreshTokenServiceMock);
+            });
+        }).CreateClient();
+
+        var command = new LogoutCommand("SomeRefreshToken");
+
+        // Act
+        var response = await client.PostAsJsonAsync(new Uri("/api/v1/auth/logout", UriKind.Relative), command);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var result = await response.Content.ReadFromJsonAsync<ResponseResult>();
+        result.Should().NotBeNull();
+        result!.Success.Should().BeTrue();
     }
 }

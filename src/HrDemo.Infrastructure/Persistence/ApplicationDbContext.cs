@@ -12,6 +12,8 @@ public sealed class ApplicationDbContext : IdentityDbContext<ApplicationUser, Ap
     {
     }
 
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
