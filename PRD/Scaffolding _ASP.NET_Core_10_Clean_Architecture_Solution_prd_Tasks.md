@@ -169,10 +169,10 @@ This plan details the task breakdown for scaffolding a complete, buildable, and 
 #### Task 8: Post-Commit Domain Event Dispatcher
 - **Description**: Define pure `IDomainEvent` marker. Build the `DomainEventNotification<TEvent>` and the post-commit event dispatcher. Configure `AuditableAndDomainEventsInterceptor` to dispatch events post-commit.
 - **Acceptance criteria**:
-  - [ ] Domain events are collected on the aggregate root and dispatched sequentially after database transaction success.
-  - [ ] Events are not dispatched if SaveChanges fails.
+  - [x] Domain events are collected on the aggregate root and dispatched sequentially after database transaction success.
+  - [x] Events are not dispatched if SaveChanges fails.
 - **Verification**:
-  - [ ] Integration tests verify sequential post-commit execution of notifications.
+  - [x] Integration tests verify sequential post-commit execution of notifications.
 - **Dependencies**: Task 3
 - **Files likely touched**:
   - `src/HrDemo.Domain/Interfaces/IDomainEvent.cs`
@@ -183,8 +183,8 @@ This plan details the task breakdown for scaffolding a complete, buildable, and 
 - **Estimated scope**: Medium (5-6 files)
 
 #### Checkpoint: Solution Complete
-- [ ] Full test suite execution is passing (`dotnet test`).
-- [ ] Solution compiles cleanly, meets format rules, and database migrations are fully updated.
+- [x] Full test suite execution is passing (`dotnet test`).
+- [x] Solution compiles cleanly, meets format rules, and database migrations are fully updated.
 
 ---
 
