@@ -13,7 +13,7 @@ about scaffolding the solution structure, projects, references, and base
 infrastructure so we can add features incrementally afterward.
 
 ### Solution name
-Use "MyApp" as a placeholder solution/root namespace. I will rename it later
+Use "HrDemo" as a placeholder solution/root namespace. I will rename it later
 if needed.
 
 ### Target framework
@@ -73,7 +73,7 @@ of repeating logic in every endpoint.
 
 ### Projects to create (Clean Architecture, 4 layers)
 
-1. **MyApp.Domain**
+1. **HrDemo.Domain**
    - Class library, no dependencies on any other project.
    - Folders: Entities, Enums, ValueObjects, Exceptions, Events, Interfaces,
      Common (BaseEntity with `int Id`, BaseAuditableEntity with
@@ -84,7 +84,7 @@ of repeating logic in every endpoint.
    - No EF Core, no ASP.NET Identity references here — Identity entities
      live in Infrastructure.
 
-2. **MyApp.Application**
+2. **HrDemo.Application**
    - Class library, references Domain only.
    - Install: `Mediator.SourceGenerator` + `Mediator.Abstractions`,
      FluentValidation, `Microsoft.Extensions.Logging.Abstractions`.
@@ -107,7 +107,7 @@ of repeating logic in every endpoint.
      `AddApplicationServices(this IServiceCollection services)`,
      including the Mediator registration call for this assembly.
 
-3. **MyApp.Infrastructure**
+3. **HrDemo.Infrastructure**
    - Class library, references Application (and transitively Domain).
    - Install: `Microsoft.EntityFrameworkCore`,
      `Microsoft.EntityFrameworkCore.SqlServer`,
@@ -144,7 +144,7 @@ of repeating logic in every endpoint.
      bearer authentication setup (issuer/audience/key from
      configuration, validated).
 
-4. **MyApp.Web**
+4. **HrDemo.Web**
    - ASP.NET Core Web API project (Minimal API only — do not scaffold
      Controllers), references Application and Infrastructure only
      (never Domain directly, never EF Core directly in endpoint
@@ -174,10 +174,10 @@ of repeating logic in every endpoint.
      `app.UseAuthorization()` in the correct order.
 
 ### Test projects (create empty except one placeholder passing test each)
-   - MyApp.Domain.UnitTests
-   - MyApp.Application.UnitTests
-   - MyApp.Infrastructure.IntegrationTests
-   - MyApp.Web.FunctionalTests (WebApplicationFactory-based)
+   - HrDemo.Domain.UnitTests
+   - HrDemo.Application.UnitTests
+   - HrDemo.Infrastructure.IntegrationTests
+   - HrDemo.Web.FunctionalTests (WebApplicationFactory-based)
    - Use xUnit, FluentAssertions. Ask me whether I want NSubstitute or
      Moq for mocking before installing either — that's the only open
      choice left.

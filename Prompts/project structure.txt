@@ -1,237 +1,133 @@
-Do not write any code just verify this prompt and make sure that it follow the best practice and 
-if there any missing feature I miss or any conflicts or gaps  for Medium app size
+You are a senior .NET architect producing an IMPLEMENTATION PLAN document (not code yet) to
+scaffold a buildable, testable Clean Architecture solution skeleton in [[TARGET_DOTNET_VERSION, e.g. .NET 10]].
 
-You are a senior .NET solutions architect. Generate a COMPLETE, production-grade project structure (folders, .csproj files, sample skeleton files, and a root `README.md` + `directory.build.props` + `directory.packages.props`) for the system described below. Do NOT skip layers. Do NOT invent unrelated folders. Output real file paths and minimal but meaningful file contents (class shells, interface signatures, DI wiring stubs, XML doc comments). Where source generators exist, show their usage. After scaffolding, provide a numbered "next steps" list.
+## Context
+- Solution name: [[SOLUTION_NAME, e.g. HrDemo]]
+- Root path: [[ROOT_PATH, e.g. D:/Projects/HrDemo]]
+- Scope: scaffolding only. No business features beyond: [[FOUNDATIONAL_FEATURES, e.g.
+  "Authentication/Identity — Register, Login, Refresh, Logout/Revoke, Assign Role, Assign Claim"]].
+- Everything else is placeholder/roadmap only, explicitly marked as such.
 
-================================================================
-PRE-IMPLEMENTATION RESEARCH PHASE (MANDATORY)
-================================================================
-Before writing any code, you MUST internally search your knowledge base for the latest best practices for .NET 10 regarding:
-1. Transactional Outbox Pattern: Keeping Domain pure (no Mediator dependency) by wrapping deserialized domain events in a `DomainEventNotification<T>` that implements Mediator's `INotification` at the Infrastructure layer.
-2. Source-Generated JSON: Using separate `JsonSerializerContext`s (e.g., `InfrastructureJsonContext` for domain events, `AppJsonContext` for DTOs).
-3. HybridCache API: Facaded behind a well-defined `ICacheService` with `GetOrCreateAsync` and `RemoveAsync`, configuring explicit local/distributed expirations.
-4. ASP.NET Core 10 Minimal APIs: Endpoint group authorization vs. `.AllowAnonymous()` overrides, rate limiting policy mapping, custom Exception Middleware replacing `UseExceptionHandler`, and RFC 9457 ProblemDetails.
-5. Serilog.Sinks.OpenTelemetry: Bridging logs to OTLP via gRPC with safe enrichers (null-checking `Activity.Current`).
-6. Hangfire.Redis.StackExchange: Using Redis for job storage, implementing `IDashboardAuthorizationFilter` for dashboard security, and safe distributed locks via `StackExchange.Redis` (using `StringSetAsync` with a Guid token and Lua script for atomic release).
-7. Refresh Token Rotation: Implementing Token Family Invalidation (RFC 6749 Security BCP) with SHA256 hashed tokens and `FamilyId` tracking.
-8. ASP.NET Identity with integer keys (`IdentityDbContext<TUser, TRole, int>`).
-9. Strongly-typed configuration using `IOptions<T>` pattern with `ValidateDataAnnotations` and `ValidateOnStart`.
-10. Mediator source generator configuration via `[assembly: MediatorOptions]`.
-Apply these best practices strictly in the generated code.
+## Non-negotiable architecture rules (apply these verbatim; do not soften them)
+- Domain references nothing.
+- Application references Domain only.
+- Infrastructure references Application and Domain.
+- API references Application and Infrastructure.
+- Infrastructure is the ONLY project allowed to reference ORM/database providers and identity/auth
+  framework packages.
+- Domain entities never reference DbContext, IHttpContextAccessor, IConfiguration, or any web
+  framework types.
+- All cross-layer communication goes through Application-defined abstractions (interfaces), never
+  concrete Infrastructure types leaking upward.
+- CancellationToken propagation: every async public method, handler, query, and ORM operation
+  accepts and forwards a CancellationToken. No exceptions.
+- Result vs. Exception boundary:
+  - Expected failure states (validation errors, NotFound, Conflict, Unauthorized) are returned as
+    a Result-style payload, never thrown as exceptions.
+  - Exceptions are reserved for genuinely unexpected failures and are caught by a single global
+    exception-handling middleware that maps them to a formatted error response.
+  - Explicitly enumerate any known "gray area" exception (e.g. optimistic concurrency conflicts on
+    a specific entity) and state which side of the boundary it falls on, with the exact status
+    code/result it should map to.
+- The Result/Response type has zero footprint in the Domain layer; it exists purely as an
+  Application transport contract and an API response contract.
+- Test naming convention: Given_When_Then across all test projects.
+- Mapping: manual mapping only via static extension methods, no AutoMapper/Mapster-class libraries,
+  unless the user explicitly asks for one.
+- ORM migrations live strictly in Infrastructure; the API/host project must never be the migrations
+  context. State the exact CLI commands (with --project and --startup-project flags) required to
+  run migrations against this layout, and confirm a design-time context factory is included so the
+  CLI works without a running host.
+- The Application-facing persistence interface exposes only the aggregate DbSets/collections and a
+  SaveChanges-style method — never the ORM's internal facade, change tracker, or ad-hoc `Set<T>()`
+  escape hatches.
+- API endpoints inject the narrowest possible dispatch abstraction available from the mediator
+  library in use (e.g. a sender-only interface rather than the full mediator interface), if the
+  library offers one.
+- Domain events: Domain defines a pure `IDomainEvent`-style marker with zero dependency on any
+  messaging/mediator library. Any adapter/wrapper type needed to bridge domain events into the
+  mediator library's notification type must live in Application (state the exact folder/path), not
+  Domain, and not duplicated in Infrastructure. Domain event dispatch must happen strictly AFTER a
+  successful transaction commit (state the trade-off this implies for consistency, and document it).
 
-================================================================
-TECH STACK (locked, do not deviate)
-================================================================
-- Backend: .NET 10 SDK, C# latest (LangVersion latest / Preview features enabled)
-- API style: Minimal APIs ONLY (no controllers)
-- Mediation: Source-generated CQRS via Mediator (NuGet package `Mediator` + `Mediator.SourceGenerator`). Use `IMediator` from the namespace `Mediator` for commands and domain event publishing (via wrapper notification).
-- Validation: FluentValidation (including `FluentValidation.DependencyInjectionExtensions`), auto-wired via pipeline behavior
-- Persistence: EF Core 10 on SQL Server (Microsoft.EntityFrameworkCore.SqlServer) for all relational data.
-- DbContexts: `AppDbContext` implements `IUnitOfWork` and inherits from `IdentityDbContext<ApplicationUser, ApplicationRole, int>`. `AuditDbContext` is separate. Both hold relational data. Hangfire uses Redis.
-- Primary Keys: ALL entities (including Identity) MUST use `int` as their primary key.
-- Patterns: Transactional Outbox (inside AppDbContext), Specification pattern (Ardalis.Specification)
-- Interceptors: Soft-delete (with EF Global Query Filters) + Audit (captures post-save state) + Outbox save interceptor.
-- Auth: ASP.NET Identity (int keys) + custom JWT (access + refresh, rotating refresh tokens with Family Invalidation stored in SQL Server). Symmetric signing (HMAC-SHA256) using `JwtConfiguration` from config.
-- AuthZ: Roles AND fine-grained permissions (claim-based "perm:resource:action") with a custom `AuthorizationHandler<TRequirement>`
-- Auth hardening: rate-limited login/refresh, password policies (custom validator), session tracking, JWT revocation (`jti` blocklist in Redis), validated impersonation, Distributed Data Protection (keys in Redis)
-- Data: Migrations + deterministic seeding (`IDataSeeder` with `Order` property via `IHostedService` for roles/admin/permissions)
-- Caching: Microsoft.Extensions.Caching.Hybrid (L1 + L2 Redis via IDistributedCache), wrapped behind `ICacheService`
-- Background jobs: Hangfire on Redis + auth-gated dashboards (`IDashboardAuthorizationFilter`)
-- Mailing: MailKit for SMTP, Scriban for template rendering (embedded resources)
-- Reliability: Idempotency middleware (with request buffering & SHA256 body hashing), quotas per user (daily business limits in Redis), rate limiting (burst control), HTTP Resilience (Polly v8), CORS
-- API versioning: Asp.Versioning.Mvc + Asp.Versioning.Http (URL segment: /v1, /v2)
-- Errors: Custom ExceptionHandlingMiddleware emitting RFC 9457 ProblemDetails (replacing built-in UseExceptionHandler)
-- Observability: Serilog bridged to OpenTelemetry (OTLP gRPC) with safe enrichers, System.Diagnostics.Metrics/ActivitySource, health probes, security/exception auditing
-- Docs: Microsoft.AspNetCore.OpenApi + Scalar.AspNetCore reference UI (versioned endpoints)
-- Time: `TimeProvider.System` registered in DI. All time calls use `TimeProvider.GetUtcNow()`.
+## Auth / security specifics (only if auth is in scope for this solution)
+- Refresh tokens: raw values are NEVER stored or logged — only a cryptographic hash (state the
+  algorithm) is persisted, compared during validation.
+- State the exact session/token policy the user wants: [[TOKEN_POLICY, e.g. "one refresh token
+  record per user, upsert on login, delete on logout, second-device login invalidates the first"]].
+- If using an ORM-level optimistic concurrency column for token rotation races, explicitly state
+  which exception it throws, that this is an *expected* condition (not a 500), and which
+  Result/status it must be translated to, and in which service/handler that translation happens.
+- State explicitly that signing keys, seed/admin credentials, and any other secret must be sourced
+  from configuration/user-secrets/environment/vault — never a literal string in seed or startup
+  code — and call this out as its own line item, not just implied by "uses IConfiguration."
 
-================================================================
-ARCHITECTURE — Clean Architecture (4 layers + 2 test projects)
-================================================================
-src/
-├── Domain/                       // pure, no dependencies (not even Mediator)
-│   ├── Common/                   // BaseEntity (int Id), IAggregateRoot (exposes ClearDomainEvents), IDomainEvent, Auditable, ISoftDeletable, OutboxMessageStatus enum
-│   ├── DomainMarker.cs           // Empty internal class used solely as an assembly anchor for reflection scanning.
-│   ├── ValueObjects/
-│   ├── Aggregates/<EachAggregate>/
-│   │   ├── <Entity>.cs
-│   │   ├── Events/               // IDomainEvent implementations (pure C#)
-│   │   └── Specifications/
-│   ├── Exceptions/
-│   └── Services/
-│
-├── Application/                  // use cases, abstractions
-│   ├── Abstractions/
-│   │   ├── Persistence/          // IUnitOfWork, IRepository<T>, IReadRepository<T>, IDataSeeder
-│   │   ├── Caching/              // ICacheService
-│   │   ├── Security/             // ICurrentUser, IPermissionChecker, ITokenService, ISessionStore
-│   │   ├── BackgroundJobs/       // IJobDispatcher
-│   │   ├── Mailing/              // IEmailService, IEmailTemplateRenderer, EmailMessage record
-│   │   ├── Observability/        // IAuditWriter, AuditEntry record, IExceptionMapper, ExceptionProblemDetails record
-│   │   └── Events/               // IDomainEventTypeRegistry
-│   ├── Common/                   // Result<T>, Result, PagedResult<T>, Error, Behaviors, DomainEventNotification<T> : INotification, Options classes (JwtOptions, QuotaOptions, MailOptions)
-│   │   └── Behaviors/            // Logging, Validation, Caching
-│   ├── ApplicationMarker.cs      // Empty internal class used as assembly anchor for AddValidatorsFromAssemblyContaining.
-│   ├── DependencyInjection.cs    // AddApplication(...) + [assembly: MediatorOptions(ServiceLifetime = ServiceLifetime.Scoped)]
-│   ├── Users/                    // one FOLDER PER feature/bounded context
-│   ├── Auth/
-│   ├── Permissions/              // permission catalog, seeding metadata, AuthorizationHandler<T>
-│
-├── Infrastructure/               // implementations
-│   ├── Persistence/
-│   │   ├── AppDbContext.cs       // Inherits IdentityDbContext<AppUser, AppRole, int>. Implements IUnitOfWork.
-│   │   ├── AuditDbContext.cs     // Separate DbContext for audit logs. Registered as scoped.
-│   │   ├── AuditDbContextFactory.cs // IDesignTimeDbContextFactory for dotnet ef migrations.
-│   │   ├── Configurations/       // IEntityTypeConfiguration<T> + OutboxMessageConfiguration + RefreshTokenConfiguration
-│   │   ├── Interceptors/
-│   │   │   ├── SoftDeleteInterceptor.cs       // Overrides SavingChangesAsync. Sets IsDeleted + applies via model builder
-│   │   │   ├── AuditInterceptor.cs            // Overrides SavedChangesAsync. Resolves AuditDbContext via scope.
-│   │   │   └── OutboxSaveChangesInterceptor.cs// Overrides SavingChangesAsync. Adds OutboxMessage to ChangeTracker. Returns await base.SavingChangesAsync.
-│   │   ├── Repositories/         // Repository<T>, SpecificationEvaluator
-│   │   ├── Migrations/
-│   │   │   ├── AppDb/            // Migrations for AppDbContext
-│   │   │   └── AuditDb/          // Migrations for AuditDbContext
-│   │   └── Seeders/
-│   │       └── DatabaseSeederHostedService.cs // IHostedService executing IDataSeeder implementations
-│   ├── Identity/                 // UserManager/RoleManager wrappers, ICurrentUser impl, ApplicationUser, ApplicationRole
-│   ├── Auth/
-│   │   ├── JwtTokenService.cs    // ITokenService impl. Uses IOptions<JwtOptions>.
-│   │   ├── RefreshTokenStore.cs  // SQL Server backed.
-│   │   ├── SessionStore.cs       // ISessionStore impl. Redis key: session:{userId}:{sessionId}
-│   │   ├── TokenRevocationStore.cs// Redis-backed `jti` blocklist
-│   │   ├── ImpersonationService.cs
-│   │   ├── PermissionAuthorizationHandler.cs
-│   │   ├── PermissionChecker.cs
-│   │   └── PasswordPolicyValidator.cs // Registered via AddPasswordValidator
-│   ├── Caching/                  // HybridCacheService + IDistributedCache setup.
-│   ├── Jobs/                     // Hangfire setup + ProcessOutboxMessagesJob + HangfireAuthorizationFilter + JobDispatcher (IJobDispatcher impl)
-│   ├── Mailing/                  // MailKit SMTP + Scriban templates (loaded via typeof(InfrastructureMarker).Assembly)
-│   ├── Idempotency/              // middleware + Redis store
-│   ├── Quotas/                   // quota store + middleware
-│   ├── DataProtection/           // PersistKeysToStackExchangeRedis extension
-│   ├── HttpResilience/           // AddStandardResilienceHandler config
-│   ├── Observability/
-│   │   ├── SerilogBootstrap.cs
-│   │   ├── OpenTelemetryExtensions.cs
-│   │   ├── AuditWriter.cs        // IAuditWriter impl. Uses AuditDbContext
-│   │   └── ExceptionMapping/     // Concrete IExceptionMapper implementations
-│   ├── Serialization/            // InfrastructureJsonContext
-│   ├── ExternalServices/
-│   ├── InfrastructureMarker.cs   // Empty internal class for assembly anchor.
-│   └── DependencyInjection.cs    // Registers IConnectionMultiplexer, binds IOptions<T>, AddDbContext<AuditDbContext>, AddHttpContextAccessor
-│
-├── Api/                          // composition root
-│   ├── Program.cs                // top-level statements auto-generate internal partial class Program. Use InternalsVisibleTo in .csproj for Integrations.
-│   ├── Endpoints/                // Minimal API endpoint groups per feature. Auth endpoints MUST call .AllowAnonymous().
-│   ├── Middleware/
-│   │   ├── ExceptionHandlingMiddleware.cs // Resolves IEnumerable<IExceptionMapper>, maps to ExceptionProblemDetails, converts to Microsoft.AspNetCore.Mvc.ProblemDetails.
-│   │   ├── IdempotencyMiddleware.cs
-│   │   ├── QuotaMiddleware.cs
-│   │   └── SecurityAuditMiddleware.cs // Audits ONLY 401/403. Extracts User ID via ClaimTypes.NameIdentifier directly.
-│   ├── OpenApi/
-│   │   ├── ConfigureOpenApiOptions.cs   // Document-level security, operation-level exclusion for AllowAnonymous.
-│   │   └── OpenApiDocumentOptions.cs
-│   ├── Health/                   // MapHealthChecks. Custom HangfireServerHealthCheck (NOT a NuGet package).
-│   ├── Auth/                     // AddApiAuth(...) + Identity + policies
-│   ├── Cors/                     // AddCors policy + CorsOptions.cs (API layer only)
-│   ├── Versioning/
-│   ├── RateLimiting/
-│   ├── ProblemDetails/
-│   ├── Scalar/
-│   ├── Serialization/            // AppJsonContext
-│   ├── DependencyInjection.cs
-│   ├── GlobalUsings.cs
-│   ├── appsettings.json          // MUST include ConnectionStrings (Default, Audit, Redis), Mail, Serilog, Cors, Quotas, JwtConfiguration
-│   ├── appsettings.Development.json
-│   └── Api.csproj
-│
-tests/
-├── Tests/                        // Unit Tests (xUnit + FluentAssertions + NSubstitute)
-└── Integrations/                 // Integration Tests (xUnit + WebApplicationFactory<Program>)
-    ├── Auth/
-    ├── Users/
-    ├── Fixtures/                 // WebApplicationFactory (resolves scoped contexts for MigrateAsync)
-    └── appsettings.Test.json     // MUST contain local SQL Server and Redis connection strings
+## Required output structure
+Produce the plan using exactly these top-level sections, in this order:
+1. Title + one-paragraph scope statement.
+2. `## Architecture Rules` — the rules above, restated specifically for this solution (fold in any
+   domain-specific rules the user gave you).
+3. `## Intended Solution Structure` — a full directory tree: solution-root files, `src/` projects,
+   `tests/` projects (one test project per src project, matching naming convention
+   `[[SOLUTION_NAME]].<Layer>.UnitTests` / `.IntegrationTests` / `.FunctionalTests`).
+4. `## Proposed Changes`, broken into:
+   - Solution-wide files: `Directory.Build.props`, `Directory.Packages.props` (Central Package
+     Management ON), solution file, `.editorconfig`, `.gitattributes`, `.gitignore`, `README.md`
+     (list exactly what the README must document — architecture diagram, CPM, migrations
+     instructions, auth/session flow, CI-equivalent commands, roadmap, health check semantics, and
+     a step-by-step "how to add a new CQRS feature" recipe).
+   - One subsection per `src/` project: project file references (be exact about which packages go
+     in which project and why — do not let a package leak into a layer that shouldn't have it),
+     folder structure, global usings policy, foundational types to scaffold, DI extension method
+     name and what it wires up, and (for Application) the exact pipeline behavior order with a
+     one-line justification for the order chosen.
+   - One subsection for `tests/`: responsibility of each test project, plus an explicit numbered
+     list of concrete scenarios to verify (not just "write unit tests" — name the actual behaviors,
+     race conditions, and boundary cases a reviewer would expect to see covered).
+5. `## Verification Plan` — the exact CLI commands to run, in order, to prove the scaffold builds,
+   tests pass, formatting is clean, migrations apply, and the solution publishes.
 
-build/
-├── Directory.Build.props
-└── Directory.Packages.props
+## Default technology stack (use unless the user overrides)
+- CQRS/mediator: a source-generator-based mediator library, not reflection-based, with generator
+  package referenced ONLY in the edge/host project and abstractions-only package referenced
+  wherever handlers/messages are defined.
+- Validation: FluentValidation, wired as a pipeline behavior.
+- ORM: EF Core + the relevant provider, ASP.NET Identity for user/role storage.
+- Auth: JWT bearer, explicit `ClockSkew = TimeSpan.Zero` default.
+- API surface: Minimal APIs, versioned, OpenAPI enabled.
+- Health checks: liveness endpoint with no DB dependency, readiness endpoint backed by a real
+  DbContext-based check (not a duplicate raw-connection-string check unless there's a stated reason
+  for both).
+- Testing: xUnit, FluentAssertions or equivalent, NSubstitute or equivalent, WebApplicationFactory
+  for functional tests.
+- Static analysis: a solution-wide analyzer package wired through Directory.Build.props, warnings
+  visible but not build-breaking yet (state this is a deliberate "tighten later" roadmap item).
 
-.editorconfig                     // Enforce indent_style = space, indent_size = 4, dotnet_style_qualification_for_field = false
-.globalconfig                     // is_global = true, dotnet_diagnostic.CA2007.severity = none
-README.md
+## Known pitfalls to avoid (apply proactively, don't wait to be asked)
+- If a source-generator mediator package is used, do not reference the generator package in every
+  layer — only in the edge project — and say so explicitly in the plan.
+- Get pipeline behavior order right: logging/timing should wrap the whole pipeline (outermost), not
+  sit inside authorization/validation, or your timing and correlation logging will be incomplete.
+  Authorization should generally run before validation, not after.
+- If a class library (not a web SDK project) needs `IHttpContextAccessor` or other ASP.NET Core
+  abstractions, say explicitly how it gets that reference (FrameworkReference or explicit package),
+  since class libraries don't get it for free.
+- If Central Package Management is used, remember that per-package build metadata like
+  `PrivateAssets`/`IncludeAssets` set on a `<PackageVersion>` entry in `Directory.Packages.props`
+  has NO EFFECT — that metadata must be set on the actual `<PackageReference>` in the consuming
+  project's `.csproj`. Call this out explicitly wherever such metadata is needed (e.g. a
+  design-time-only ORM tooling package).
+- If an analyzer package is listed as a version pin, make sure it is also actually wired as a real
+  `PackageReference` somewhere (e.g. via Directory.Build.props) — a version pin alone does nothing.
+- Don't duplicate a database health check across two different mechanisms (e.g. a raw SQL ping
+  package AND a DbContext-based check) without a stated reason; pick one, prefer the one that
+  exercises the actual code path the app uses.
+- State where design-time tooling support (e.g. `IDesignTimeDbContextFactory`) lives, since a class
+  library with no host can't otherwise construct its DbContext for CLI migration commands.
+- Any place secrets could plausibly end up hardcoded (seed users, signing keys, connection strings)
+  gets an explicit one-line callout — don't leave it implied.
 
-REQUIREMENTS THE AGENT MUST ENFORCE IN GENERATED FILES
-SINGLE-COMPANY SYSTEM: This system is for ONE company only. No multi-tenancy, TenantId, or tenant-specific filtering.
-Domain references nothing. Application references Domain + Mediator. Infrastructure references Application + Domain. Api references Application + Infrastructure. Tests references Domain/Application/Infrastructure. Integrations references Api. No cyclic dependencies.
-Integer Primary Keys: ALL entities, including ASP.NET Core Identity (ApplicationUser, ApplicationRole), MUST use int as their primary key. AppDbContext MUST inherit from IdentityDbContext<ApplicationUser, ApplicationRole, int>.
-Strongly-Typed Configuration: JwtOptions, QuotaOptions, and MailOptions MUST be in Application/Common/. CorsOptions MUST be in Api/Cors/. All MUST be bound using services.AddOptions<T>().BindConfiguration("SectionName").ValidateDataAnnotations().ValidateOnStart() and injected via IOptions<T>.
-Redis Dependency Injection: Register IConnectionMultiplexer as a singleton in Infrastructure/DependencyInjection.cs resolving configuration.GetConnectionString("Redis"). All Redis consumers MUST resolve IConnectionMultiplexer from DI.
-Domain Purity & Events: IDomainEvent MUST NOT extend INotification. In Application/Common, define DomainEventNotification<TDomainEvent> : INotification where TDomainEvent : IDomainEvent.
-Outbox Payload Serialization: Use System.Text.Json with InfrastructureJsonContext in Infrastructure. Decorate it with [JsonSerializable(typeof(T))] for every concrete IDomainEvent. Add a comment to add new entries for new events.
-Outbox Entity & Interceptor: OutboxMessage MUST have: int Id, string EventTypeName, string Payload, OutboxMessageStatus Status, int AttemptCount, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt, DateTimeOffset? ProcessedAt. OutboxSaveChangesInterceptor overrides SavingChangesAsync, adds to ChangeTracker via Set<OutboxMessage>().AddRange(), sets CreatedAt/UpdatedAt, clears aggregate events, and returns await base.SavingChangesAsync(...).
-Outbox Processing (Per-Message Save & UpdatedAt): ProcessOutboxMessagesJob uses Redis StringSetAsync lock with Lua script release. Resets Processing > 10 min to Pending. Queries 50 Pending ordered by CreatedAt ASC. Marks Processing. Uses IDomainEventTypeRegistry (Singleton, scans typeof(DomainMarker).Assembly, uses System.Threading.Lock). Wraps in DomainEventNotification<T> and calls IMediator.Publish(). Saves status per message. The job MUST explicitly set message.UpdatedAt = _timeProvider.GetUtcNow() before calling await unitOfWork.SaveChangesAsync() for each state transition. Register via app.Lifetime.ApplicationStarted.Register(() => RecurringJob.AddOrUpdate(...)) in Program.cs.
-IUnitOfWork & AppDbContext: IUnitOfWork exposes Task<int> SaveChangesAsync(CancellationToken ct = default). AppDbContext implements it by delegating to base.SaveChangesAsync(ct).
-Interceptor Execution Order & Audit Recursion: Order: SoftDeleteInterceptor → AuditInterceptor → OutboxSaveChangesInterceptor. AuditInterceptor overrides SavedChangesAsync. AuditWriter MUST write via a separate AuditDbContext to avoid interceptor recursion.
-AuditDbContext Tooling & Migration: AuditDbContext MUST have its own AuditDbContextFactory : IDesignTimeDbContextFactory<AuditDbContext>. It MUST be registered as services.AddDbContext<AuditDbContext>(...) with a scoped lifetime. AuditInterceptor resolves it via scope.ServiceProvider.GetRequiredService<AuditDbContext>(). Migrations for AppDb and AuditDb MUST be in separate sub-folders under Infrastructure/Persistence/Migrations/.
-DatabaseSeederHostedService: MUST resolve both AppDbContext and AuditDbContext and call await appDbContext.Database.MigrateAsync(ct) AND await auditDbContext.Database.MigrateAsync(ct) before invoking any IDataSeeder.
-CQRS Pipeline & Mediator: Behaviors registered: Logging → Validation → Caching. In Application/DependencyInjection.cs, include [assembly: MediatorOptions(ServiceLifetime = ServiceLifetime.Scoped)] to ensure handlers are scoped. Call services.AddValidatorsFromAssemblyContaining<ApplicationMarker>().
-CancellationToken: All handlers, IDataSeeder.SeedAsync, IEmailTemplateRenderer.RenderAsync must accept and forward CancellationToken. IHostedService passes stoppingToken.
-Common Types Definition:
-Result<T> MUST be a sealed record class (not a struct). Use [MemberNotNullWhen(true, nameof(Value))] on the IsSuccess property to satisfy nullable reference types under TreatWarningsAsErrors=true. Provide Result<T>.Success(T value) and Result<T>.Failure(Error error). Include a non-generic Result.
-PagedResult<T> is a record with IReadOnlyList<T> Items, int TotalCount, int Page, int PageSize, and computed int TotalPages.
-Endpoint mappers MUST use a Match/ToActionResult extension that converts Result<T> to Ok(value) or Problem(...) (RFC 9457).
-Abstraction Definitions:
-IDataSeeder in Application/Abstractions/Persistence/: int Order { get; }, Task SeedAsync(CancellationToken ct = default).
-IJobDispatcher in Application/Abstractions/BackgroundJobs/: string Enqueue<T>(Expression<Func<T, Task>> methodCall), string Schedule<T>(Expression<Func<T, Task>> methodCall, TimeSpan delay). MUST NOT reference Hangfire types.
-ISessionStore in Application/Abstractions/Security/: Task CreateAsync(int userId, string sessionId, CancellationToken ct), Task<bool> IsActiveAsync(int userId, string sessionId, CancellationToken ct), Task RevokeAsync(int userId, string sessionId, CancellationToken ct). Redis key: session:{userId}:{sessionId}.
-ITokenService in Application/Abstractions/Security/: Task<TokenResult> GenerateTokensAsync(int userId, string email, IReadOnlyList<string> roles, IReadOnlyList<string> permissions, CancellationToken ct), Task<TokenResult> RefreshAsync(string rawRefreshToken, CancellationToken ct). TokenResult is a record with string AccessToken, string RefreshToken, DateTimeOffset ExpiresAt.
-IPermissionChecker in Application/Abstractions/Security/: ValueTask<bool> HasPermissionAsync(ClaimsPrincipal user, string permission, CancellationToken ct).
-ICurrentUser in Application/Abstractions/Security/: int? UserId { get; }, string? Email { get; }, bool IsAuthenticated { get; }, IReadOnlyList<string> Roles { get; }.
-IAuditWriter in Application/Abstractions/Observability/: Task WriteAsync(AuditEntry entry, CancellationToken ct = default). AuditEntry is a record with string Action, string? UserId, string Resource, int StatusCode, DateTimeOffset Timestamp, string? Details.
-IEmailService in Application/Abstractions/Mailing/: Task SendAsync(EmailMessage message, CancellationToken ct = default).
-IExceptionMapper in Application/Abstractions/Observability/: bool CanMap(Exception exception) and ExceptionProblemDetails Map(Exception exception). ExceptionProblemDetails is a custom record with string Type, string Title, int Status, string Detail, string Instance. ExceptionHandlingMiddleware resolves IEnumerable<IExceptionMapper>, selects via CanMap, and maps the record to Microsoft.AspNetCore.Mvc.ProblemDetails for the HTTP response.
-ICurrentUser Registration: Infrastructure/DependencyInjection.cs MUST call services.AddHttpContextAccessor() and register services.AddScoped<ICurrentUser, CurrentUser>().
-JWT, Revocation & Refresh Tokens:
-appsettings.json MUST contain: "JwtConfiguration": { "Secret": "dev-only-replace-in-prod-min-32-chars-here!!1", "Issuer": "UMSAppIssuer", "Audience": "UMSAppAudience", "TokenExpiryInMinutes": 30, "RefreshTokenExpiryInDays": 1 }
-RefreshToken entity: int Id, int UserId, string Token (SHA256 hashed, unique index), Guid FamilyId, bool IsUsed, DateTimeOffset ExpiresAt, DateTimeOffset CreatedAt, DateTimeOffset? RevokedAt. Family Invalidation on reuse. jti checked against Redis blocklist in OnTokenValidated.
-AuthZ, Endpoints & Permissions: PermissionAuthorizationHandler : AuthorizationHandler<PermissionRequirement>. HangfireAuthorizationFilter : IDashboardAuthorizationFilter. All endpoint groups call .RequireAuthorization(). Auth endpoints explicitly call .AllowAnonymous() and use WithOpenApi() to exclude document-level security. PasswordPolicyValidator registered via AddPasswordValidator<>.
-Idempotency, Quotas & Rate Limiting: Idempotency uses Request.EnableBuffering() + SHA256. Quotas use Redis key quota:{userId}:{date}, TTL 25h. Rate limiting uses built-in RateLimiter.
-Exception Handling Pipeline: Custom ExceptionHandlingMiddleware as outermost. NO UseExceptionHandler().
-Middleware Pipeline Order: UseExceptionHandling -> UseCors -> UseAuthentication -> UseAuthorization -> UseRateLimiter -> UseIdempotency -> UseQuotas -> UseSecurityAudit.
-SecurityAuditMiddleware: MUST extract user ID via context.User?.FindFirstValue(ClaimTypes.NameIdentifier) directly (not ICurrentUser), to handle 401 scenarios safely where the user may not be fully authenticated.
-Caching Facade: ICacheService exposes GetOrCreateAsync<T> and RemoveAsync. Set HybridCacheEntryOptions with explicit LocalCacheExpiration and Expiration.
-Mailing: EmailMessage record in Application/Abstractions/Mailing/. IEmailTemplateRenderer.RenderAsync<T> returns ValueTask<string>. Scriban templates loaded via typeof(InfrastructureMarker).Assembly.GetManifestResourceStream().
-CORS & Versioning: CORS uses .AllowCredentials() (no .AllowAnyOrigin()). URL segment + Asp.Versioning with ReportApiVersions = true. Map Scalar endpoints: /scalar/v1, /scalar/v2.
-Observability: Serilog.Sinks.OpenTelemetry via gRPC. CorrelationIdEnricher null-checks Activity.Current. SecurityAuditMiddleware audits ONLY 401/403.
-Health endpoints: /health/live (process), /health/ready (db + redis + HangfireServerHealthCheck). HangfireServerHealthCheck is a CUSTOM IHealthCheck implementation in Api/Health/ (NOT a NuGet package). It injects JobStorage via DI constructor and TimeProvider to record _startTime. Returns Degraded instead of Unhealthy on empty/exception within first 30 seconds.
-Directory.Packages.props: pin .NET 10 packages explicitly:
-Mediator, Mediator.SourceGenerator [PrivateAssets=all]
-FluentValidation, FluentValidation.DependencyInjectionExtensions
-Microsoft.EntityFrameworkCore.SqlServer, Microsoft.EntityFrameworkCore.Design [PrivateAssets=all]
-Asp.Versioning, Microsoft.Extensions.Caching.Hybrid
-Ardalis.Specification, Ardalis.Specification.EntityFrameworkCore
-StackExchange.Redis
-Serilog, Serilog.AspNetCore, Serilog.Sinks.OpenTelemetry
-OpenTelemetry, OpenTelemetry.Extensions.Hosting, OpenTelemetry.Instrumentation.AspNetCore, OpenTelemetry.Instrumentation.Http, OpenTelemetry.Exporter.OpenTelemetryProtocol
-Hangfire.AspNetCore, Hangfire.Redis.StackExchange
-MailKit, Scriban, Scalar.AspNetCore, Microsoft.AspNetCore.OpenApi
-Microsoft.Extensions.Http.Resilience, Microsoft.AspNetCore.DataProtection.StackExchangeRedis
-xUnit, FluentAssertions, NSubstitute, Microsoft.AspNetCore.Mvc.Testing
-TimeProvider & JSON: Register TimeProvider.System as singleton. AppJsonContext in Api/Serialization/ registered via ConfigureHttpJsonOptions.
-Seeding: IHostedService (DatabaseSeederHostedService) calls MigrateAsync() on both contexts before invoking IDataSeeder implementations sorted by Order. Every seeder MUST be idempotent.
-Build Props & GlobalUsings: <ImplicitUsings>enable</ImplicitUsings>. GlobalUsings.cs per project. Analyzers + TreatWarningsAsErrors=true.
-Testing projects: Tests contains pure unit tests. Integrations uses WebApplicationFactory<Program>. Generate tests/Integrations/appsettings.Test.json with local SQL Server and Redis connection strings. In the WebApplicationFactory fixture, resolve both contexts inside await using var scope = Services.CreateAsyncScope() (var appDb = scope.ServiceProvider.GetRequiredService<AppDbContext>() and var auditDb = scope.ServiceProvider.GetRequiredService<AuditDbContext>()) and call MigrateAsync() on both before any tests run.
-InternalsVisibleTo: Api.csproj MUST include <InternalsVisibleTo Include="Integrations" />. Domain.csproj and Infrastructure.csproj MUST include <InternalsVisibleTo Include="Tests" />.
-EditorConfig: .editorconfig MUST enforce indent_style = space, indent_size = 4, charset = utf-8-bom, end_of_line = crlf, dotnet_style_qualification_for_field = false. .globalconfig MUST set is_global = true and dotnet_diagnostic.CA2007.severity = none.
-================================================================
-DELIVERABLES
-A. Tree listing of all folders/files.
-B. Contents of every .csproj, .props, .targets, appsettings*.json (including appsettings.Test.json), .editorconfig, .globalconfig, README.md.
-C. Contents of every interface/signature in Application/Abstractions/* and Application/Common/* (Result, PagedResult, Error, Options).
-D. One full sample feature end-to-end (Users): Domain aggregate (with ClearDomainEvents) → ApplicationUser : IdentityUser<int> and ApplicationRole : IdentityRole<int> class definitions → EF config → Application command+handler+validator+behavior wiring → API endpoint group (with Result to ActionResult mapping) → migration snippet → one unit test in Tests → one integration test in Integrations.
-E. Program.cs showing the FULL pipeline: Serilog bootstrap → Host → OpenTelemetry → HybridCache → EF (interceptors) → Identity → Data Protection → JWT → AuthZ policies → CORS → Rate limiting → ProblemDetails → OpenAPI → Scalar → Health → Hangfire (Redis) → Mediator → Endpoints → app.Lifetime.ApplicationStarted.Register (Hangfire job) → middleware order.
-F. A "Next Steps" checklist of ~15 items (CI/CD, secrets, load tests, security review). Include: "In production, run migrations as a pre-deployment step." and "Integration tests require SQL Server and Redis instances. Ensure these are provisioned in your CI pipeline as service containers or external instances before running dotnet test."
-
-Use idiomatic .NET 10 features: primary constructors, file-scoped namespaces, required members, init setters, collection expressions, System.Threading.Lock, TimeProvider, source-generated regex/JSON where relevant, and [GeneratedRegex]/JsonSerializerContext for DTOs.
-Be exhaustive but every file must be runnable as-is with only secrets/config to fill in.
+## Final instruction
+After drafting the plan, do one self-review pass against the "Known pitfalls" list above and fix
+any you find before returning the final answer. State any assumption you made about ambiguous
+placeholders inline rather than stopping to ask.
