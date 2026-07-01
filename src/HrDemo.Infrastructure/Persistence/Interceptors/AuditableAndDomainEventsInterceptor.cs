@@ -4,6 +4,7 @@ using HrDemo.Application.Abstractions.DateTime;
 using HrDemo.Application.Abstractions.Identity;
 using HrDemo.Application.Abstractions.Events;
 using HrDemo.Domain.Common;
+using HrDemo.Domain.Interfaces;
 
 namespace HrDemo.Infrastructure.Persistence.Interceptors;
 
@@ -12,6 +13,7 @@ public sealed class AuditableAndDomainEventsInterceptor : SaveChangesInterceptor
     private readonly ICurrentUser _currentUser;
     private readonly IClock _clock;
     private readonly IDomainEventDispatcher _domainEventDispatcher;
+    private readonly List<IDomainEvent> _collectedEvents = new();
 
     public AuditableAndDomainEventsInterceptor(
         ICurrentUser currentUser,
@@ -31,6 +33,7 @@ public sealed class AuditableAndDomainEventsInterceptor : SaveChangesInterceptor
         if (eventData.Context != null)
         {
             UpdateAuditFields(eventData.Context);
+            CollectDomainEvents(eventData.Context);
         }
 
         return base.SavingChangesAsync(eventData, result, cancellationToken);
@@ -41,12 +44,22 @@ public sealed class AuditableAndDomainEventsInterceptor : SaveChangesInterceptor
         int result,
         CancellationToken cancellationToken = default)
     {
-        if (eventData.Context != null)
+        if (_collectedEvents.Count > 0)
         {
-            await DispatchDomainEventsAsync(eventData.Context, cancellationToken);
+            var eventsToDispatch = _collectedEvents.ToList();
+            _collectedEvents.Clear();
+            await _domainEventDispatcher.DispatchEventsAsync(eventsToDispatch, cancellationToken);
         }
 
         return await base.SavedChangesAsync(eventData, result, cancellationToken);
+    }
+
+    public override Task SaveChangesFailedAsync(
+        DbContextErrorEventData eventData,
+        CancellationToken cancellationToken = default)
+    {
+        _collectedEvents.Clear();
+        return base.SaveChangesFailedAsync(eventData, cancellationToken);
     }
 
     private void UpdateAuditFields(DbContext context)
@@ -69,29 +82,18 @@ public sealed class AuditableAndDomainEventsInterceptor : SaveChangesInterceptor
         }
     }
 
-    private async Task DispatchDomainEventsAsync(DbContext context, CancellationToken cancellationToken)
+    private void CollectDomainEvents(DbContext context)
     {
-        // Gather entities with domain events
         var entities = context.ChangeTracker
             .Entries<BaseEntity>()
             .Select(e => e.Entity)
-            .Where(e => e.DomainEvents.Any())
+            .Where(e => e.DomainEvents.Count > 0)
             .ToList();
 
-        var domainEvents = entities
-            .SelectMany(e => e.DomainEvents)
-            .ToList();
-
-        // Clear events first to prevent recursion
         foreach (var entity in entities)
         {
+            _collectedEvents.AddRange(entity.DomainEvents);
             entity.ClearDomainEvents();
-        }
-
-        // Dispatch events sequentially post-commit
-        if (domainEvents.Any())
-        {
-            await _domainEventDispatcher.DispatchEventsAsync(domainEvents, cancellationToken);
         }
     }
 }
