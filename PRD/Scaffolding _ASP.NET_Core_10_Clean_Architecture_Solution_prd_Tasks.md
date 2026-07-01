@@ -25,12 +25,12 @@ This plan details the task breakdown for scaffolding a complete, buildable, and 
 #### Task 1: Setup Solution Projects and Central Package Management (CPM)
 - **Description**: Initialize the `HrDemo.slnx` solution file, central build settings in `Directory.Build.props` (adding warning rules and the analyzer package), and the centralized package list in `Directory.Packages.props`. Scaffold the projects (`Domain`, `Application`, `Infrastructure`, `API`, and tests).
 - **Acceptance criteria**:
-  - [ ] `HrDemo.slnx` compiles cleanly.
-  - [ ] `Directory.Packages.props` is used as the single source of version numbers.
-  - [ ] Static analyzer Meziantou is active on build.
+  - [x] `HrDemo.slnx` compiles cleanly.
+  - [x] `Directory.Packages.props` is used as the single source of version numbers.
+  - [x] Static analyzer Meziantou is active on build.
 - **Verification**:
-  - [ ] `dotnet restore` succeeds.
-  - [ ] `dotnet build` succeeds with zero errors/warnings.
+  - [x] `dotnet restore` succeeds.
+  - [x] `dotnet build` succeeds with zero errors/warnings.
 - **Dependencies**: None
 - **Files likely touched**:
   - `HrDemo.slnx`
@@ -45,12 +45,12 @@ This plan details the task breakdown for scaffolding a complete, buildable, and 
 #### Task 2: Health Checks and Global Exception Middleware
 - **Description**: Add liveness (`/health/live`) and readiness (`/health/ready`) checks in API `Program.cs`. Implement `ExceptionHandlingMiddleware` to catch all unexpected errors and return a 500 status `ResponseResult`.
 - **Acceptance criteria**:
-  - [ ] `/health/live` returns a 200 OK status immediately.
-  - [ ] `/health/ready` queries the DB context (using a placeholder DbContext) and verifies database health.
-  - [ ] Unhandled exceptions are mapped to 500 JSON response result.
+  - [x] `/health/live` returns a 200 OK status immediately.
+  - [x] `/health/ready` queries the DB context (using a placeholder DbContext) and verifies database health.
+  - [x] Unhandled exceptions are mapped to 500 JSON response result.
 - **Verification**:
-  - [ ] Functional test targeting health endpoints returns success.
-  - [ ] Request triggering exception returns 500 `ResponseResult` payload.
+  - [x] Functional test targeting health endpoints returns success.
+  - [x] Request triggering exception returns 500 `ResponseResult` payload.
 - **Dependencies**: Task 1
 - **Files likely touched**:
   - `src/HrDemo.API/Program.cs`
@@ -59,8 +59,8 @@ This plan details the task breakdown for scaffolding a complete, buildable, and 
 - **Estimated scope**: Small (3 files)
 
 #### Checkpoint: Foundation
-- [ ] Solutions and projects restore and build without warnings.
-- [ ] Liveness and readiness endpoints return appropriate status codes.
+- [x] Solutions and projects restore and build without warnings.
+- [x] Liveness and readiness endpoints return appropriate status codes.
 
 ---
 
