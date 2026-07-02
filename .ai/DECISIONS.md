@@ -108,11 +108,11 @@ This document details the architectural decisions and design patterns evident in
 
 ---
 
-## 11. Permission Seeding Location & Mechanism (Adopted Plan)
+## 11. Permission Seeding Location & Mechanism (Implemented)
 
 - **Context**: Granular claims-based authorization policies require a baseline list of permission claims to be seeded to specific roles or users upon system startup.
-- **Decision**: Adopted the pattern that permission seeding logic should live in `src/HrDemo.Infrastructure/Identity/` (e.g., via a planned `PermissionSeeder` service class invoked during host startup/migrations). Currently, database seeding is unimplemented (tracked in [NEXT_STEPS.md](file:///d:/_MyFolder/MyWorkSpace/HRDemo/.ai/NEXT_STEPS.md)), and policies are defined inside [Program.cs](file:///d:/_MyFolder/MyWorkSpace/HRDemo/src/HrDemo.API/Program.cs#L24-L28).
+- **Decision**: Implemented `PermissionSeeder` class in `src/HrDemo.Infrastructure/Identity/` and wired it up during application startup in `Program.cs`. The seeder handles role creation, admin user creation using configurations in `appsettings.Development.json`, and granular permission claim assignments. It is built to be completely concurrency-safe.
 - **Trade-offs**:
-  - *Advantages*: Consolidates identity and authorization data management within the Infrastructure Identity project layer.
-  - *Disadvantages*: Requires explicit seeding execution logic on application start, which can block web host initialization if database connections are slow.
+  - *Advantages*: Consolidates identity and authorization data management within the Infrastructure Identity project layer. It handles concurrent app instances safely without database unique constraint collisions.
+  - *Disadvantages*: Requires explicit seeding execution logic on application start, which blocks web host initialization if database connections are slow (mitigated by crash-on-failure policy to avoid insecure startup).
 

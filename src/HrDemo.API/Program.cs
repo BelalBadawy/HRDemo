@@ -86,7 +86,23 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
     Predicate = check => check.Tags.Contains("ready") || check.Name == "DatabaseReady"
 });
 
-app.Run();
+// Seed the database on startup
+using (var scope = app.Services.CreateScope())
+{
+    var seeder = scope.ServiceProvider.GetRequiredService<HrDemo.Infrastructure.Identity.PermissionSeeder>();
+    try
+    {
+        await seeder.SeedAsync();
+    }
+    catch (Exception ex)
+    {
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        logger.LogCritical(ex, "An error occurred while seeding the database.");
+        throw;
+    }
+}
+
+await app.RunAsync();
 
 public partial class Program { }
 
