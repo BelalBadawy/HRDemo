@@ -101,7 +101,7 @@ public sealed class AuthEndpointsTests : IClassFixture<WebApplicationFactory<Pro
             AccessToken = "valid-access-token",
             RefreshToken = "valid-refresh-token"
         };
-        userManagerMock.LoginAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+        userManagerMock.LoginAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(ResponseResult<LoginResponseDto>.SuccessResult(expectedResponse, "Login successful."));
 
         var client = _factory.WithWebHostBuilder(builder =>
@@ -132,7 +132,7 @@ public sealed class AuthEndpointsTests : IClassFixture<WebApplicationFactory<Pro
     {
         // Arrange
         var userManagerMock = Substitute.For<IUserManager>();
-        userManagerMock.LoginAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+        userManagerMock.LoginAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(ResponseResult<LoginResponseDto>.FailureResult(ResultStatus.Unauthorized, "Invalid credentials.", 401));
 
         var client = _factory.WithWebHostBuilder(builder =>
@@ -166,7 +166,7 @@ public sealed class AuthEndpointsTests : IClassFixture<WebApplicationFactory<Pro
             AccessToken = "new-access-token",
             RefreshToken = "new-refresh-token"
         };
-        refreshTokenServiceMock.RotateTokenAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+        refreshTokenServiceMock.RotateTokenAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(ResponseResult<LoginResponseDto>.SuccessResult(expectedResponse, "Token refreshed."));
 
         var client = _factory.WithWebHostBuilder(builder =>
@@ -197,7 +197,7 @@ public sealed class AuthEndpointsTests : IClassFixture<WebApplicationFactory<Pro
     {
         // Arrange
         var refreshTokenServiceMock = Substitute.For<IRefreshTokenService>();
-        refreshTokenServiceMock.RevokeTokenAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+        refreshTokenServiceMock.RevokeTokenAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(ResponseResult.SuccessResult("Logged out."));
 
         var client = _factory.WithWebHostBuilder(builder =>

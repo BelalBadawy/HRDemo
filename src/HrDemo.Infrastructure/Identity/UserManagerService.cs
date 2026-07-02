@@ -4,6 +4,7 @@ using HrDemo.Application.Abstractions.Identity;
 using HrDemo.Application.Abstractions.Authentication;
 using HrDemo.Application.Features.Authentication.Dtos;
 using HrDemo.Application.Common.Results;
+using HrDemo.Application.Abstractions.DateTime;
 
 namespace HrDemo.Infrastructure.Identity;
 
@@ -11,19 +12,25 @@ public sealed class UserManagerService : IUserManager
 {
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly RoleManager<ApplicationRole> _roleManager;
+    private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly IJwtTokenGenerator _jwtTokenGenerator;
     private readonly IRefreshTokenService _refreshTokenService;
+    private readonly IClock _clock;
 
     public UserManagerService(
         UserManager<ApplicationUser> userManager,
         RoleManager<ApplicationRole> roleManager,
+        SignInManager<ApplicationUser> signInManager,
         IJwtTokenGenerator jwtTokenGenerator,
-        IRefreshTokenService refreshTokenService)
+        IRefreshTokenService refreshTokenService,
+        IClock clock)
     {
         _userManager = userManager;
         _roleManager = roleManager;
+        _signInManager = signInManager;
         _jwtTokenGenerator = jwtTokenGenerator;
         _refreshTokenService = refreshTokenService;
+        _clock = clock;
     }
 
     public async Task<ResponseResult<int>> CreateUserAsync(string userName, string email, string password, CancellationToken cancellationToken = default)
@@ -31,7 +38,9 @@ public sealed class UserManagerService : IUserManager
         var user = new ApplicationUser
         {
             UserName = userName,
-            Email = email
+            Email = email,
+            CreatedDate = _clock.UtcNow,
+            IsActive = true
         };
 
         var result = await _userManager.CreateAsync(user, password);
@@ -106,7 +115,7 @@ public sealed class UserManagerService : IUserManager
         return ResponseResult.SuccessResult("Claim assigned successfully.");
     }
 
-    public async Task<ResponseResult<LoginResponseDto>> LoginAsync(string userNameOrEmail, string password, string ipAddress, CancellationToken cancellationToken = default)
+    public async Task<ResponseResult<LoginResponseDto>> LoginAsync(string userNameOrEmail, string password, CancellationToken cancellationToken = default)
     {
         var user = await _userManager.FindByNameAsync(userNameOrEmail);
         if (user == null && userNameOrEmail.Contains('@', StringComparison.Ordinal))
@@ -114,7 +123,37 @@ public sealed class UserManagerService : IUserManager
             user = await _userManager.FindByEmailAsync(userNameOrEmail);
         }
 
-        if (user == null || !await _userManager.CheckPasswordAsync(user, password))
+        if (user == null)
+        {
+            return ResponseResult<LoginResponseDto>.FailureResult(
+                ResultStatus.Unauthorized,
+                "Invalid username or password.",
+                401
+            );
+        }
+
+        var signInResult = await _signInManager.CheckPasswordSignInAsync(user, password, lockoutOnFailure: true);
+        if (signInResult.IsLockedOut)
+        {
+            return ResponseResult<LoginResponseDto>.FailureResult(
+                ResultStatus.Unauthorized,
+                "Account is locked.",
+                401
+            );
+        }
+
+        if (signInResult.Succeeded)
+        {
+            if (!user.IsActive)
+            {
+                return ResponseResult<LoginResponseDto>.FailureResult(
+                    ResultStatus.Unauthorized,
+                    "Account is inactive.",
+                    401
+                );
+            }
+        }
+        else
         {
             return ResponseResult<LoginResponseDto>.FailureResult(
                 ResultStatus.Unauthorized,
@@ -140,7 +179,7 @@ public sealed class UserManagerService : IUserManager
         var jwtId = jwtToken.Id;
 
         // Persist refresh token
-        var refreshToken = await _refreshTokenService.CreateRefreshTokenAsync(user.Id, jwtId, ipAddress, cancellationToken);
+        var refreshToken = await _refreshTokenService.CreateRefreshTokenAsync(user.Id, jwtId, cancellationToken);
 
         return ResponseResult<LoginResponseDto>.SuccessResult(new LoginResponseDto
         {

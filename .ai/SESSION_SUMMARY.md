@@ -1,22 +1,33 @@
-# Session Summary
+# Session Summary - 2026-07-02
 
-This session integrated Swashbuckle (Swagger UI) with Basic Authentication protection and JWT Bearer support into the API project, gated to the Development environment.
+## 1. What was done
+- **ApplicationUser Enhancement**: Extended the entity with `IsActive` (bool) and `CreatedDate` (DateTimeOffset) columns. Generated and applied database migration `AddUserCreatedDateAndIsActive` with correct default constraints for existing records.
+- **Identity Lockout Configuration**: Configured Identity lockout options (5 attempts, 15 minutes lockout duration) in the DI setup by transitioning from `AddIdentityCore` to `AddIdentity`.
+- **IP Extraction & Transport Boundary Isolation**: Removed `IpAddress` parameter from CQRS Command records (`LoginCommand`, `RefreshCommand`, `LogoutCommand`), command handlers, and service interfaces (`IUserManager`, `IRefreshTokenService`). Client IP addresses are resolved inside the Infrastructure layer boundary via `ICurrentUser.IpAddress` using `IHttpContextAccessor`.
+- **Brute Force & Account Harvesting Protection**: Rewrote `UserManagerService.LoginAsync` check sequence to:
+  1. Find user by `UserNameOrEmail` (returns `"Invalid username or password."` if null, mitigating account harvesting).
+  2. Call `SignInManager.CheckPasswordSignInAsync` (incrementing lockout counter).
+  3. Return `"Account is locked."` if locked out.
+  4. Validate `IsActive == true` (returns `"Account is inactive."` if deactivated).
+  5. Return `"Invalid username or password."` on password verification failure.
+- **Session Revocation for Deactivated Users**: Updated `RefreshTokenService.RotateTokenAsync` to verify user `IsActive` flag. On deactivation, the service immediately deletes the user's refresh token row and aborts with `401 Unauthorized` ("Account is inactive.").
+- **Test Coverage Expansion**:
+  - Updated all existing unit and functional tests (`LoginTests.cs`, `RefreshTests.cs`, `LogoutTests.cs`, `AuthEndpointsTests.cs`) to align with signature modifications.
+  - Added new unit tests in `LoginTests.cs` verifying handler behavior under locked-out and inactive states.
+  - Created `IdentityServiceTests.cs` (Integration Tests) validating full database, password lockout count, simulated time-elapsed lockout release, user deactivation login failure, and session revocation.
+  - Registered `IClock` dependency in the DI setup of `PermissionSeederTests.cs`.
+- **Documentation Updated**: Synchronized project documentation files (`README.md`, `CODEBASE_MAP.md`, `DECISIONS.md`, `CONVENTIONS.md`, `NEXT_STEPS.md`, `CHANGELOG.md`).
 
-## What Was Done
-- **Swashbuckle Package Integration**: Added `Swashbuckle.AspNetCore` (v10.0.0) package to `Directory.Packages.props` and referenced it in `src/HrDemo.API/HrDemo.API.csproj`.
-- **XML Comments Support**: Enabled compile-time XML documentation generation and suppressed CS1591 warnings inside the API project file. Swashbuckle has been configured to read and include the generated XML comments in the OpenAPI documentation.
-- **Swagger Security Configuration**: Registered the JWT Bearer security scheme definition in SwaggerGen and configured it as a global security requirement using the updated `OpenApiSecuritySchemeReference` (compatible with Microsoft.OpenApi 2.x).
-- **Basic Auth Middleware**: Implemented `SwaggerBasicAuthMiddleware.cs` in `src/HrDemo.API/Middleware/` to parse the `Authorization: Basic` header, validating credentials against configuration values, and return `401 Unauthorized` with `WWW-Authenticate: Basic` header on missing or invalid credentials. This protects all paths starting with `/swagger` (both UI files and JSON schema).
-- **Configuration Credentials**: Configured the `SwaggerAuth` section in `appsettings.Development.json` containing the static credentials (`HrAdmin`/`HR@20226$`).
-- **Startup Wiring**: Configured `builder.Services.AddSwaggerConfiguration()` and `app.UseSwaggerConfiguration(builder.Environment)` inside `src/HrDemo.API/Program.cs` to execute Swagger configurations and auth gating exclusively under the `Development` environment.
-- **Functional Tests**: Created `SwaggerAuthTests.cs` in `tests/HrDemo.API.FunctionalTests/` using `WebApplicationFactory<Program>` (forcing the environment to `Development`) to verify:
-  - Accessing the Swagger UI and OpenAPI JSON document without credentials returns `401 Unauthorized`.
-  - Accessing them with valid Basic Auth credentials returns `200 OK`.
-  - Accessing with invalid credentials returns `401 Unauthorized`.
+## 2. Build and Test Status
+- `dotnet build` succeeded with zero warnings and zero errors.
+- `dotnet test` completed successfully: all 51 tests passed.
+  - `HrDemo.Application.UnitTests`: 26/26 passed.
+  - `HrDemo.API.FunctionalTests`: 14/14 passed.
+  - `HrDemo.Infrastructure.IntegrationTests`: 11/11 passed.
 
-## Build and Test Status
-- `dotnet build` succeeded with **0 warnings** and **0 errors**.
-- `dotnet test` passed successfully with **43 tests passed** (including 24 unit, 14 functional, and 5 integration tests).
-
-## Next Immediate Step
-- Proceed with implementing the **Employee Management Slice** (Employee aggregate root, EF mappings, migrations, CQRS commands/queries, API endpoints, and test coverage).
+## 3. Next Immediate Step
+- Proceed with the implementation of the **Employee Management Slice** as defined in the backlog:
+  - Define `Employee` aggregate root in Domain layer.
+  - Map configurations and add migrations in Infrastructure.
+  - Implement CQRS handlers, validators in Application layer.
+  - Expose API endpoints under `/api/v1/employees` in API layer.

@@ -52,20 +52,16 @@ public static class DependencyInjection
 
         services.AddScoped<IApplicationDbContext>(provider => provider.GetRequiredService<ApplicationDbContext>());
 
-        // Register Identity Core
-        services.AddIdentityCore<ApplicationUser>(options =>
+        // Register Identity
+        services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
         {
             // Lockout options
-            options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
+            options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
             options.Lockout.MaxFailedAccessAttempts = 5;
             options.Lockout.AllowedForNewUsers = true;
         })
-        .AddRoles<ApplicationRole>()
         .AddEntityFrameworkStores<ApplicationDbContext>()
         .AddDefaultTokenProviders();
-
-        // Add RoleManager support
-        services.AddScoped<RoleManager<ApplicationRole>>();
 
         // Bind and register JWT configurations
         var jwtSection = configuration.GetSection(JwtOptions.SectionName);

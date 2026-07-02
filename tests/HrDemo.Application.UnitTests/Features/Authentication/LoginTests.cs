@@ -74,7 +74,7 @@ public sealed class LoginTests
         };
         var successResult = ResponseResult<LoginResponseDto>.SuccessResult(expectedResponse, "Login successful.");
 
-        _userManagerMock.LoginAsync(command.UserNameOrEmail, command.Password, Arg.Any<string>(), Arg.Any<CancellationToken>())
+        _userManagerMock.LoginAsync(command.UserNameOrEmail, command.Password, Arg.Any<CancellationToken>())
             .Returns(successResult);
 
         // Act
@@ -94,7 +94,7 @@ public sealed class LoginTests
         var command = new LoginCommand("testuser", "WrongPassword");
         var failureResult = ResponseResult<LoginResponseDto>.FailureResult(ResultStatus.Unauthorized, "Invalid credentials.", 401);
 
-        _userManagerMock.LoginAsync(command.UserNameOrEmail, command.Password, Arg.Any<string>(), Arg.Any<CancellationToken>())
+        _userManagerMock.LoginAsync(command.UserNameOrEmail, command.Password, Arg.Any<CancellationToken>())
             .Returns(failureResult);
 
         // Act
@@ -103,6 +103,44 @@ public sealed class LoginTests
         // Assert
         result.Success.Should().BeFalse();
         result.Status.Should().Be(ResultStatus.Unauthorized);
+        result.StatusCode.Should().Be(401);
+    }
+
+    [Fact]
+    public async Task GivenInactiveUser_WhenHandled_ShouldReturnInactiveMessage()
+    {
+        // Arrange
+        var command = new LoginCommand("testuser", "Password123!");
+        var failureResult = ResponseResult<LoginResponseDto>.FailureResult(ResultStatus.Unauthorized, "Account is inactive.", 401);
+
+        _userManagerMock.LoginAsync(command.UserNameOrEmail, command.Password, Arg.Any<CancellationToken>())
+            .Returns(failureResult);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.Success.Should().BeFalse();
+        result.Message.Should().Be("Account is inactive.");
+        result.StatusCode.Should().Be(401);
+    }
+
+    [Fact]
+    public async Task GivenLockedUser_WhenHandled_ShouldReturnLockedMessage()
+    {
+        // Arrange
+        var command = new LoginCommand("testuser", "Password123!");
+        var failureResult = ResponseResult<LoginResponseDto>.FailureResult(ResultStatus.Unauthorized, "Account is locked.", 401);
+
+        _userManagerMock.LoginAsync(command.UserNameOrEmail, command.Password, Arg.Any<CancellationToken>())
+            .Returns(failureResult);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.Success.Should().BeFalse();
+        result.Message.Should().Be("Account is locked.");
         result.StatusCode.Should().Be(401);
     }
 }

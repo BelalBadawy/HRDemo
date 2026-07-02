@@ -10,5 +10,5 @@ public interface IUserManager
     Task<bool> IsUserNameUniqueAsync(string userName, CancellationToken cancellationToken = default);
     Task<ResponseResult> AddToRoleAsync(int userId, string role, CancellationToken cancellationToken = default);
     Task<ResponseResult> AddClaimAsync(int userId, string claimType, string claimValue, CancellationToken cancellationToken = default);
-    Task<ResponseResult<LoginResponseDto>> LoginAsync(string userNameOrEmail, string password, string ipAddress, CancellationToken cancellationToken = default);
+    Task<ResponseResult<LoginResponseDto>> LoginAsync(string userNameOrEmail, string password, CancellationToken cancellationToken = default);
 }

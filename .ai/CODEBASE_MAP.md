@@ -95,7 +95,7 @@ Houses Ef Core, DB Interceptors, and Identity implementations.
 - **[DependencyInjection.cs](file:///d:/_MyFolder/MyWorkSpace/HRDemo/src/HrDemo.Infrastructure/DependencyInjection.cs)**
   - Configures EF Core SQL Server, ASP.NET Core Identity Core stores, Jwt authentication options, clock registries, and pipeline interceptors.
 - **[Identity/ApplicationUser.cs](file:///d:/_MyFolder/MyWorkSpace/HRDemo/src/HrDemo.Infrastructure/Identity/ApplicationUser.cs)**
-  - Concrete Identity User model using `int` primary keys, referencing the active `RefreshToken?`.
+  - Concrete Identity User model using `int` primary keys, referencing the active `RefreshToken?`, and containing `CreatedDate` (DateTimeOffset) and `IsActive` (bool) properties.
 - **[Identity/ApplicationRole.cs](file:///d:/_MyFolder/MyWorkSpace/HRDemo/src/HrDemo.Infrastructure/Identity/ApplicationRole.cs)**
   - Concrete Identity Role model using `int` primary keys.
 - **[Identity/RefreshToken.cs](file:///d:/_MyFolder/MyWorkSpace/HRDemo/src/HrDemo.Infrastructure/Identity/RefreshToken.cs)**
@@ -146,7 +146,7 @@ The Minimal API layer hosting configuration settings and HTTP controllers.
 - **[HrDemo.Application.UnitTests](file:///d:/_MyFolder/MyWorkSpace/HRDemo/tests/HrDemo.Application.UnitTests)**
   - Tests command handlers, input validations, and early auth gate behavior pipeline components.
 - **[HrDemo.Infrastructure.IntegrationTests](file:///d:/_MyFolder/MyWorkSpace/HRDemo/tests/HrDemo.Infrastructure.IntegrationTests)**
-  - Verifies database persistency mapping, post-commit interceptor domain event dispatch loops, and startup database permission seeding logic.
+  - Verifies database persistency mapping, post-commit interceptor domain event dispatch loops, database permission seeding logic, and identity behaviors (lockout, active checks, and refresh revocation via `IdentityServiceTests.cs`).
 - **[HrDemo.API.FunctionalTests](file:///d:/_MyFolder/MyWorkSpace/HRDemo/tests/HrDemo.API.FunctionalTests)**
   - Verifies liveness check routes, authorization access permissions, and Swagger Basic Auth gating over HTTP.
 

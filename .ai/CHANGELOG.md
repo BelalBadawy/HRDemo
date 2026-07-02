@@ -5,6 +5,22 @@ All notable changes to the **HrDemo** project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-07-02
+
+### Added
+- Added `IsActive` (bool) and `CreatedDate` (DateTimeOffset) columns to `ApplicationUser` in `src/HrDemo.Infrastructure/Identity/ApplicationUser.cs`.
+- Created EF Core migration `AddUserCreatedDateAndIsActive` with default values (`IsActive = 1`, `CreatedDate = GetUtcDate()`) applied for seeded/existing records.
+- Added `IpAddress` (string?) property to `ICurrentUser` interface and implemented it in `CurrentUser.cs` using `IHttpContextAccessor` for boundary isolation.
+- Created `IdentityServiceTests.cs` in `tests/HrDemo.Infrastructure.IntegrationTests/` to verify lockout rules, inactive login/refresh rejection, refresh token revocation, and IP address logging.
+
+### Changed
+- Configured identity services via `AddIdentity<ApplicationUser, ApplicationRole>` instead of `AddIdentityCore` in Infrastructure `DependencyInjection.cs`, setting lockout rules (5 attempts, 15 min duration).
+- Updated default admin seeding in `PermissionSeeder.cs` to set `IsActive = true` and `CreatedDate` using `IClock`.
+- Removed `IpAddress` parameter from CQRS commands (`LoginCommand`, `RefreshCommand`, `LogoutCommand`), handlers, and related interfaces (`IUserManager`, `IRefreshTokenService`).
+- Implemented brute-force mitigation in `UserManagerService.LoginAsync` by evaluating existence first, performing password checks via `SignInManager` to trigger lockout counters, and checking `IsActive` status.
+- Updated `RefreshTokenService.RotateTokenAsync` to check user `IsActive` status, immediately deleting the user's refresh token row and returning `401 Unauthorized` if inactive.
+- Updated unit and functional tests (`LoginTests.cs`, `RefreshTests.cs`, `LogoutTests.cs`, `AuthEndpointsTests.cs`) to match signature updates and test inactive/lockout flows.
+
 ## [1.2.0] - 2026-07-02
 
 ### Added

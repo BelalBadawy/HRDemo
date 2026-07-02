@@ -23,26 +23,23 @@ public static class AuthEndpoints
         })
         .WithName("RegisterUser");
 
-        group.MapPost("/login", async (LoginCommand command, ISender sender, HttpContext httpContext, CancellationToken cancellationToken) =>
+        group.MapPost("/login", async (LoginCommand command, ISender sender, CancellationToken cancellationToken) =>
         {
-            var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
-            var result = await sender.Send(command with { IpAddress = ip }, cancellationToken);
+            var result = await sender.Send(command, cancellationToken);
             return result.ToHttpResult();
         })
         .WithName("LoginUser");
 
-        group.MapPost("/refresh", async (RefreshCommand command, ISender sender, HttpContext httpContext, CancellationToken cancellationToken) =>
+        group.MapPost("/refresh", async (RefreshCommand command, ISender sender, CancellationToken cancellationToken) =>
         {
-            var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
-            var result = await sender.Send(command with { IpAddress = ip }, cancellationToken);
+            var result = await sender.Send(command, cancellationToken);
             return result.ToHttpResult();
         })
         .WithName("RefreshToken");
 
-        group.MapPost("/logout", async (LogoutCommand command, ISender sender, HttpContext httpContext, CancellationToken cancellationToken) =>
+        group.MapPost("/logout", async (LogoutCommand command, ISender sender, CancellationToken cancellationToken) =>
         {
-            var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
-            var result = await sender.Send(command with { IpAddress = ip }, cancellationToken);
+            var result = await sender.Send(command, cancellationToken);
             return result.ToHttpResult();
         })
         .WithName("LogoutUser");

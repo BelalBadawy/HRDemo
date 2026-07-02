@@ -71,3 +71,14 @@ This document outlines the active backlog and planned roadmap for the **HrDemo**
   - Add tests under `HrDemo.Infrastructure.IntegrationTests` verifying outbox message generation, execution, and locking.
 - **Edge-case Functional Tests**:
   - Add functional tests verifying early request rejection when validation fails or authentication tokens are missing.
+
+---
+
+## 5. Completed Slices
+
+- **Identity Enhancement (Lockout, Active status, IP isolation)**:
+  - Enabled Identity lockout (5 attempts, 15 minutes lockout duration) and added `IsActive` and `CreatedDate` properties to `ApplicationUser`.
+  - Added strict harvesting mitigation logic on Login and token deletion logic on inactive refresh rotation.
+  - Isolated client IP address resolution into `ICurrentUser` within the Infrastructure boundary.
+  - Wrote robust integration tests for lockout, active checks, and refresh token deletion in `IdentityServiceTests.cs`.
+

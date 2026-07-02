@@ -139,7 +139,7 @@ tests/
 
 ### Secure Identity Management
 - **Registration**: `/api/v1/auth/register` lets new users sign up, validating credentials and confirming email/username uniqueness against the database.
-- **Credential Login**: `/api/v1/auth/login` checks credentials using password hashes, generates JWT access tokens, and registers a session refresh token.
+- **Credential Login**: `/api/v1/auth/login` validates credentials using ASP.NET Core Identity's `SignInManager` with account lockout policies (5 failed attempts, 15 minutes lockout duration), validates user active status (`IsActive == true`), and generates JWT access/refresh tokens.
 - **Claims & Roles Assignment**: Gated endpoints (`/api/v1/auth/assign-role` and `/api/v1/auth/assign-claim`) allow administrators to configure credentials.
 
 ### Rotating Session Control (Single Refresh Token Policy)
@@ -147,6 +147,8 @@ tests/
 - **Single Active Session**: Each user has exactly one active refresh token at any time (1-to-1 table relation mapped via `UserId` primary key). Logging in from a new client rotates the token, immediately invalidating the previous session.
 - **Rotation Optimistic Concurrency**: Rotation swaps the access/refresh token pair. If concurrent calls attempt to rotate the same session, EF Core's `RowVersion` optimistic lock throws a `DbUpdateConcurrencyException`, returning a 409 Conflict / 401 Unauthorized.
 - **Logout/Revocation**: Calling `/api/v1/auth/logout` deletes the user's refresh token row, ending the session.
+- **Active Status Check on Refresh**: Token rotation verifies the user's `IsActive` flag. If deactivated, the rotation fails with `401 Unauthorized` and the refresh token is immediately deleted.
+- **IP & Transport Boundary Isolation**: Client IP addresses are resolved at the Infrastructure boundary via `ICurrentUser.IpAddress` rather than flowing through Application layer command payloads.
 
 ### Post-Commit Domain Events
 - **Collection**: Entities inherit `BaseEntity` which maintains a collection of raised `IDomainEvent`s.
