@@ -106,6 +106,8 @@ Houses Ef Core, DB Interceptors, and Identity implementations.
   - Employs token security descriptors to issue JWT access keys.
 - **[Identity/UserManagerService.cs](file:///d:/_MyFolder/MyWorkSpace/HRDemo/src/HrDemo.Infrastructure/Identity/UserManagerService.cs)**
   - Implements `IUserManager` via ASP.NET Core `UserManager<ApplicationUser>` and `RoleManager<ApplicationRole>`.
+- **[Identity/PermissionSeeder.cs](file:///d:/_MyFolder/MyWorkSpace/HRDemo/src/HrDemo.Infrastructure/Identity/PermissionSeeder.cs)**
+  - Seeds baseline system roles ("Admin", "User"), default permission claims, and default administrator credentials on host startup.
 - **[Identity/RefreshTokenService.cs](file:///d:/_MyFolder/MyWorkSpace/HRDemo/src/HrDemo.Infrastructure/Identity/RefreshTokenService.cs)**
   - Implements `IRefreshTokenService`. Handles cryptographically hashed session rotation and revocation.
 - **[Persistence/ApplicationDbContext.cs](file:///d:/_MyFolder/MyWorkSpace/HRDemo/src/HrDemo.Infrastructure/Persistence/ApplicationDbContext.cs)**
@@ -140,7 +142,7 @@ The Minimal API layer hosting configuration settings and HTTP controllers.
 - **[HrDemo.Application.UnitTests](file:///d:/_MyFolder/MyWorkSpace/HRDemo/tests/HrDemo.Application.UnitTests)**
   - Tests command handlers, input validations, and early auth gate behavior pipeline components.
 - **[HrDemo.Infrastructure.IntegrationTests](file:///d:/_MyFolder/MyWorkSpace/HRDemo/tests/HrDemo.Infrastructure.IntegrationTests)**
-  - Verifies database persistency mapping and post-commit interceptor domain event dispatch loops.
+  - Verifies database persistency mapping, post-commit interceptor domain event dispatch loops, and startup database permission seeding logic.
 - **[HrDemo.API.FunctionalTests](file:///d:/_MyFolder/MyWorkSpace/HRDemo/tests/HrDemo.API.FunctionalTests)**
   - Verifies liveness check routes and authorization access permissions over HTTP.
 
@@ -155,6 +157,6 @@ This registry tracks the exact C# locations of central types, service registrati
 | **`AddApplicationServices`** | [DependencyInjection.cs](file:///d:/_MyFolder/MyWorkSpace/HRDemo/src/HrDemo.Application/DependencyInjection.cs#L10) | Registers FluentValidation validators and sequential pipeline behaviors (Logging ➔ Authorization ➔ Validation). |
 | **`AddInfrastructureServices`** | [DependencyInjection.cs](file:///d:/_MyFolder/MyWorkSpace/HRDemo/src/HrDemo.Infrastructure/DependencyInjection.cs#L22) | Configures SQL Server context, Identity framework stores, Clocks, JWT authentication, and the database interceptor. |
 | **`BaseAuditableEntity`** | [BaseAuditableEntity.cs](file:///d:/_MyFolder/MyWorkSpace/HRDemo/src/HrDemo.Domain/Common/BaseAuditableEntity.cs#L3) | Base auditable class exposing: `CreatedAt` (`DateTimeOffset`), `CreatedBy` (`string?`), `LastModifiedAt` (`DateTimeOffset?`), and `LastModifiedBy` (`string?`). |
-| **Permission Seeding** | *Unimplemented* (Planned) | Currently, authorization claims gating policies are defined in [Program.cs](file:///d:/_MyFolder/MyWorkSpace/HRDemo/src/HrDemo.API/Program.cs#L24-L28). Dynamic claim assignment happens via `UserManagerService.cs` and Endpoint `/api/v1/auth/assign-claim`. Seeding mechanism is planned for `src/HrDemo.Infrastructure/Identity/` (see [NEXT_STEPS.md](file:///d:/_MyFolder/MyWorkSpace/HRDemo/.ai/NEXT_STEPS.md)). |
+| **Permission Seeding** | [PermissionSeeder.cs](file:///d:/_MyFolder/MyWorkSpace/HRDemo/src/HrDemo.Infrastructure/Identity/PermissionSeeder.cs) | Implements permission and role database seeding on application host startup, creating roles ("Admin", "User"), baseline permissions, and the default admin user. |
 | **`ToHttpResult()`** | [ResponseResultExtensions.cs](file:///d:/_MyFolder/MyWorkSpace/HRDemo/src/HrDemo.API/Extensions/ResponseResultExtensions.cs#L8) | Extension method mapping `ResponseResult` status values to ASP.NET Core Minimal `IResult` JSON responses with status codes. |
 

@@ -1,17 +1,22 @@
 # Next Steps
 
-This document outlines the planned roadmap and outstanding implementation tasks for the **HrDemo** solution.
+This document outlines the active backlog and planned roadmap for the **HrDemo** solution.
+
+---
+
+## 0. Immediate Backlog (Active Priority)
+
+- [ ] **Employee Management Slice**:
+  - Implement the `Employee` aggregate root in `HrDemo.Domain` (inheriting `BaseAuditableEntity`) with properties like Name, Email, Department, JobTitle, HireDate, and Status.
+  - Configure EF mappings in Infrastructure persistence layer and generate an EF migration.
+  - Implement CQRS commands/queries under `src/HrDemo.Application/Features/Employees/` (Create, Update, Terminate, GetById, List).
+  - Expose API endpoints under `/api/v1/employees` in `HrDemo.API/Endpoints/EmployeeEndpoints.cs` and apply `.RequireAuthorization(...)` permissions.
+  - Write unit and functional tests for the slice.
 
 ---
 
 ## 1. Domain Features Implementation (Core HR Slices)
 
-The current codebase is a scaffold skeleton containing identity, authentication, and session control. The core HR domain features need to be designed and implemented:
-
-- **Employee Management Slice**:
-  - Implement the `Employee` aggregate root (inheriting `BaseAuditableEntity`) with properties like Name, Email, Department, JobTitle, HireDate, and Status.
-  - Implement commands to create, update, and terminate employees.
-  - Expose API endpoints under `/api/v1/employees`.
 - **Department Management Slice**:
   - Implement the `Department` entity.
   - Define associations between Employees and Departments.
@@ -39,9 +44,10 @@ The current codebase is a scaffold skeleton containing identity, authentication,
 
 ## 3. Operations & Environment Configs
 
-- **Database Seeding**:
-  - Implement a database initialization and seeding service (e.g. `src/HrDemo.Infrastructure/Identity/PermissionSeeder.cs`) to execute automatically on host startup.
-  - Define a fixed list of baseline permission claims (such as `roles.assign` and `claims.assign`) and seed them to specific roles/users on startup, satisfying the requirement in `AGENTS.md` Rule 5.
+- **Database Seeding** (Completed):
+  - Created a concurrency-safe database initializer `PermissionSeeder` in `src/HrDemo.Infrastructure/Identity/PermissionSeeder.cs`.
+  - Configured startup wiring in `Program.cs` to seed roles, admin user, and permission claims on startup.
+  - Added comprehensive integration tests to prevent regression and verify idempotency.
 
 - **Dockerization**:
   - Add a multi-stage `Dockerfile` to compile and package the API project.

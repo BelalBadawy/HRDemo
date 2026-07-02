@@ -5,6 +5,18 @@ All notable changes to the **HrDemo** project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-07-02
+
+### Added
+- Created `PermissionSeeder.cs` inside `src/HrDemo.Infrastructure/Identity/` to handle startup database seeding for identity roles ("Admin", "User"), baseline claims, and default administrator credentials.
+- Created `PermissionSeederTests.cs` in `tests/HrDemo.Infrastructure.IntegrationTests/` verifying standard role creation, admin user and claim mappings, and idempotency across multiple execution passes.
+- Registered `PermissionSeeder` in the dependency injection pipeline inside `DependencyInjection.cs` of the Infrastructure project.
+
+### Changed
+- Configured `DefaultAdmin` settings block in `appsettings.Development.json` containing default seed credentials.
+- Modified `src/HrDemo.API/Program.cs` to resolve `PermissionSeeder` in a scoped sequence on host startup, executing database seeding synchronously and failing startup on database/connection exceptions.
+- Updated `app.Run()` to `await app.RunAsync()` in `Program.cs` to resolve compiler warning CA1849.
+
 ## [1.0.0] - 2026-07-02
 
 ### Added
