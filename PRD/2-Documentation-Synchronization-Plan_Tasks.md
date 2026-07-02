@@ -14,6 +14,7 @@ Discover the registration points for the application and infrastructure service 
 - [x] Identify `AddInfrastructureServices` inside [DependencyInjection.cs](file:///d:/_MyFolder/MyWorkSpace/HRDemo/src/HrDemo.Infrastructure/DependencyInjection.cs).
 - [x] Add mappings and exact references for these methods inside the Key Types Registry of [CODEBASE_MAP.md](file:///d:/_MyFolder/MyWorkSpace/HRDemo/.ai/CODEBASE_MAP.md).
 
+
 ### Blocked by
 None - can start immediately
 
@@ -28,6 +29,7 @@ Discover base entity classes and audit tracking fields in the domain layer, and 
 - [x] Verify `BaseEntity` utilizes `int` primary keys rather than Guids.
 - [x] Verify fields of `BaseAuditableEntity` (`CreatedAt`, `CreatedBy`, `LastModifiedAt`, `LastModifiedBy`).
 - [x] Map these base entities and audit fields in [CODEBASE_MAP.md](file:///d:/_MyFolder/MyWorkSpace/HRDemo/.ai/CODEBASE_MAP.md) and [README.md](file:///d:/_MyFolder/MyWorkSpace/HRDemo/.ai/README.md).
+
 
 ### Blocked by
 None - can start immediately
@@ -44,6 +46,7 @@ Verify the permission claims authorization policy configurations and Mediator CQ
 - [x] Document the adopted mocking library (`NSubstitute` v5.3.0) and compile-time Mediator interfaces (`IRequest<T>`) as decisions in [DECISIONS.md](file:///d:/_MyFolder/MyWorkSpace/HRDemo/.ai/DECISIONS.md).
 - [x] Define static manual mapping extension methods (`ToDto()` / `ToEntity()`) as mandatory conventions in [CONVENTIONS.md](file:///d:/_MyFolder/MyWorkSpace/HRDemo/.ai/CONVENTIONS.md), noting the current Auth slice as a temporary exception.
 
+
 ### Blocked by
 None - can start immediately
 
@@ -58,6 +61,7 @@ Initialize project documentation changelog and session state files tracking the 
 - [x] Create [CHANGELOG.md](file:///d:/_MyFolder/MyWorkSpace/HRDemo/.ai/CHANGELOG.md) outlining changes made to project documentation.
 - [x] Create [SESSION_SUMMARY.md](file:///d:/_MyFolder/MyWorkSpace/HRDemo/.ai/SESSION_SUMMARY.md) summarizing the handoff state.
 - [x] Ensure all documentation contains zero unresolved placeholders.
+
 
 ### Blocked by
 - Issue 1: Discover and Document Core DI & Registrations
