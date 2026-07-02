@@ -1,0 +1,118 @@
+# Architectural Decisions
+
+This document details the architectural decisions and design patterns evident in the **HrDemo** codebase, outlining the context, decisions, and trade-offs of each.
+
+---
+
+## 1. Clean Architecture (Four-Layer Separation)
+
+- **Context**: The application requires a maintainable, extensible structure that prevents business logic from coupling to database technologies or transport frameworks.
+- **Decision**: Implemented a four-project structure: `Domain` ➔ `Application` ➔ `Infrastructure` ➔ `API`.
+- **Trade-offs**:
+  - *Advantages*: Clear boundaries, independent layer testing, and direct enforcement of dependency directions. Interfaces are declared in the Application layer and implemented in Infrastructure, allowing the database to be swapped or mocked easily.
+  - *Disadvantages*: Requires mapping objects or writing wrapper structures across layer boundaries (e.g. converting database configurations, exposing commands as DTOs).
+
+---
+
+## 2. Compile-Time Mediator Source Generator (`Mediator.SourceGenerator`)
+
+- **Context**: Traditional CQRS handlers using MediatR rely on runtime reflection to locate and bind commands/queries to handlers, increasing cold-start times and memory usage.
+- **Decision**: Adopted Martin Othamar's compile-time `Mediator` implementation.
+- **Trade-offs**:
+  - *Advantages*: Zero runtime reflection; command and handler bindings are resolved at compile time, leading to faster startup times and lower CPU overhead.
+  - *Disadvantages*: Relies on third-party generators which may have slower build times and fewer community plugins than the standard MediatR package.
+
+---
+
+## 3. Centralized Standardized Response (`ResponseResult`)
+
+- **Context**: APIs often return mixed response shapes (e.g., raw arrays, standard types, or custom errors), making it difficult for clients to parse results consistently.
+- **Decision**: Wrapped all Minimal API responses in a unified `ResponseResult` or `ResponseResult<T>` structure.
+- **Trade-offs**:
+  - *Advantages*: Consistent payload structure for success (data returned) and failure (validation dictionary or status messages). Centralizes HTTP status code mapping.
+  - *Disadvantages*: Adds minor boilerplate code for handlers and endpoints. Prevents direct integration with standard `ProblemDetails` specifications without translation.
+
+---
+
+## 4. ASP.NET Core Identity with Integer Keys
+
+- **Context**: The default ASP.NET Core Identity installation maps tables to Guid-string primary keys, which can cause index fragmentation and slower join query speeds in relational databases.
+- **Decision**: Explicitly configured identity options to use `int` keys (`IdentityUser<int>`, `IdentityRole<int>`).
+- **Trade-offs**:
+  - *Advantages*: Higher database indexing performance and smaller storage size for primary/foreign keys in SQL Server.
+  - *Disadvantages*: Integer primary keys are sequential and guessable (which requires securing endpoints so users cannot guess ID values to perform ID harvesting).
+
+---
+
+## 5. Single Refresh Token Policy & Cryptographic Rotation
+
+- **Context**: Persistent sessions must be secure against token theft. Storing raw tokens in database tables is vulnerable to SQL injection exposures. Additionally, multiple active session tokens per user can cause session bloat.
+- **Decision**:
+  - Stored a SHA256 cryptographic hash (`TokenHash`) of the refresh token. Raw plaintext tokens are never logged or stored.
+  - Implemented a **Single Active Session** policy. The `RefreshToken` table uses `UserId` as both the primary key and foreign key (1-to-1 relationship). Any login from a new client rotates the session, writing over the previous row and invalidating prior sessions.
+- **Trade-offs**:
+  - *Advantages*: High security (compromised database backups do not expose usable credentials). Eliminates stale session accumulation.
+  - *Disadvantages*: Users cannot maintain simultaneous active sessions on multiple devices (e.g., phone and laptop) without logging each other out.
+
+---
+
+## 6. Concurrency Token Control on Session Rotation
+
+- **Context**: Fast, concurrent client retries (e.g. from network failures or multiple simultaneous requests using the same refresh token) can lead to race conditions during token rotation.
+- **Decision**: Configured a row version concurrency token (`RowVersion` byte array) on the `RefreshToken` table.
+- **Trade-offs**:
+  - *Advantages*: Catches database concurrency updates safely (`DbUpdateConcurrencyException`), allowing the application to reject replayed rotation requests with a 409 Conflict / 401 Unauthorized status rather than creating multiple active sessions.
+  - *Disadvantages*: Requires client-side handlers to recover from concurrency conflicts.
+
+---
+
+## 7. Granular Claims-Based Permissions
+
+- **Context**: Gating API endpoints using coarse role boundaries (e.g., `[Authorize(Roles = "Admin")]`) lacks the granularity needed for scaling business access rules.
+- **Decision**: Gated routes with fine-grained claim permissions (e.g. `roles.assign`). The `AuthorizationBehavior` intercepts mediator commands, verifying permissions claims of the `ICurrentUser` before executing validators or command handlers.
+- **Trade-offs**:
+  - *Advantages*: Extremely granular access control. Decouples endpoint restrictions from user role names. Gating at the mediator level prevents unauthorized database updates.
+  - *Disadvantages*: Requires extra claim mappings and policy configurations in the API startup pipeline.
+
+---
+
+## 8. Post-Commit Domain Event Dispatch
+
+- **Context**: Raising domain events during database updates can result in side-effects (e.g. dispatching emails, notifying queues) executing even if the database transaction fails and rolls back.
+- **Decision**: Implemented an EF Core Interceptor (`AuditableAndDomainEventsInterceptor`) that collects raised events during `SavingChangesAsync` and dispatches them via Mediator strictly *after* a successful transaction commit (`SavedChangesAsync`).
+- **Trade-offs**:
+  - *Advantages*: Guarantees database operations succeed before event side-effects run.
+  - *Disadvantages*: If a post-commit handler fails, the database change is already committed. Eventual consistency must be resolved out-of-band or via an Outbox Pattern (which is planned on the future roadmap).
+
+---
+
+## 9. Adopted Mocking Library: NSubstitute
+
+- **Context**: Unit testing commands, queries, and behaviors requires double/mock objects to isolate code under test.
+- **Decision**: Adopted `NSubstitute` (v5.3.0) as the exclusive mocking framework.
+- **Trade-offs**:
+  - *Advantages*: Extremely clean and readable syntax using C# features (`Substitute.For<T>()` and Fluent syntax like `.Returns()`). Active ecosystem and compatibility.
+  - *Disadvantages*: Requires learning specific syntax for argument matching (`Arg.Any<T>()`) and calls tracking.
+
+---
+
+## 10. Adopted Compile-Time Mediator Interfaces
+
+- **Context**: Standard CQRS setup is built on top of Martin Othamar's source-generated Mediator.
+- **Decision**: Adopted Mediator's built-in compile-time interfaces:
+  - `IRequest<TResponse>` (represented by requests/commands/queries that return a standard `ResponseResult` or `ResponseResult<T>`).
+  - `IRequestHandler<TRequest, TResponse>` (the handler signature).
+- **Trade-offs**:
+  - *Advantages*: Allows Mediator to source-generate the mapping and dispatch pipelines at compile time, eliminating runtime reflection.
+  - *Disadvantages*: Restricts choices to the custom generator API (e.g. returning `ValueTask<T>` instead of `Task<T>`).
+
+---
+
+## 11. Permission Seeding Location & Mechanism (Adopted Plan)
+
+- **Context**: Granular claims-based authorization policies require a baseline list of permission claims to be seeded to specific roles or users upon system startup.
+- **Decision**: Adopted the pattern that permission seeding logic should live in `src/HrDemo.Infrastructure/Identity/` (e.g., via a planned `PermissionSeeder` service class invoked during host startup/migrations). Currently, database seeding is unimplemented (tracked in [NEXT_STEPS.md](file:///d:/_MyFolder/MyWorkSpace/HRDemo/.ai/NEXT_STEPS.md)), and policies are defined inside [Program.cs](file:///d:/_MyFolder/MyWorkSpace/HRDemo/src/HrDemo.API/Program.cs#L24-L28).
+- **Trade-offs**:
+  - *Advantages*: Consolidates identity and authorization data management within the Infrastructure Identity project layer.
+  - *Disadvantages*: Requires explicit seeding execution logic on application start, which can block web host initialization if database connections are slow.
+
