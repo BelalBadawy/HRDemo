@@ -52,7 +52,7 @@ public sealed class RefreshTests
     public async Task GivenValidToken_WhenHandled_ShouldReturnNewTokens()
     {
         // Arrange
-        var command = new RefreshCommand("OldToken", "127.0.0.1");
+        var command = new RefreshCommand("OldToken");
         var expectedResponse = new LoginResponseDto
         {
             AccessToken = "NewAccessToken",
@@ -60,7 +60,7 @@ public sealed class RefreshTests
         };
         var successResult = ResponseResult<LoginResponseDto>.SuccessResult(expectedResponse, "Token refreshed.");
 
-        _refreshTokenServiceMock.RotateTokenAsync(command.RefreshToken, command.IpAddress, Arg.Any<CancellationToken>())
+        _refreshTokenServiceMock.RotateTokenAsync(command.RefreshToken, Arg.Any<CancellationToken>())
             .Returns(successResult);
 
         // Act

@@ -16,6 +16,6 @@ public sealed class RefreshHandler : IRequestHandler<RefreshCommand, ResponseRes
 
     public async ValueTask<ResponseResult<LoginResponseDto>> Handle(RefreshCommand request, CancellationToken cancellationToken)
     {
-        return await _refreshTokenService.RotateTokenAsync(request.RefreshToken, request.IpAddress, cancellationToken);
+        return await _refreshTokenService.RotateTokenAsync(request.RefreshToken, cancellationToken);
     }
 }

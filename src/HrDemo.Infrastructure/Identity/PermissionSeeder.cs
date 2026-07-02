@@ -4,6 +4,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using HrDemo.Application.Abstractions.DateTime;
 
 namespace HrDemo.Infrastructure.Identity;
 
@@ -13,6 +14,7 @@ public sealed class PermissionSeeder
     private readonly RoleManager<ApplicationRole> _roleManager;
     private readonly IConfiguration _configuration;
     private readonly ILogger<PermissionSeeder> _logger;
+    private readonly IClock _clock;
 
     private static readonly string[] Roles = { "Admin", "User" };
     private static readonly string[] Permissions = 
@@ -30,12 +32,14 @@ public sealed class PermissionSeeder
         UserManager<ApplicationUser> userManager,
         RoleManager<ApplicationRole> roleManager,
         IConfiguration configuration,
-        ILogger<PermissionSeeder> logger)
+        ILogger<PermissionSeeder> logger,
+        IClock clock)
     {
         _userManager = userManager;
         _roleManager = roleManager;
         _configuration = configuration;
         _logger = logger;
+        _clock = clock;
     }
 
     public async Task SeedAsync(CancellationToken cancellationToken = default)
@@ -95,7 +99,9 @@ public sealed class PermissionSeeder
             {
                 UserName = userName,
                 Email = email,
-                EmailConfirmed = true
+                EmailConfirmed = true,
+                CreatedDate = _clock.UtcNow,
+                IsActive = true
             };
 
             try

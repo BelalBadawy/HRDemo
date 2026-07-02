@@ -24,23 +24,27 @@ public sealed class RefreshTokenService : IRefreshTokenService
     private readonly IClock _clock;
     private readonly JwtOptions _jwtOptions;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly ICurrentUser _currentUser;
 
     public RefreshTokenService(
         ApplicationDbContext context,
         IJwtTokenGenerator jwtTokenGenerator,
         IClock clock,
         IOptions<JwtOptions> jwtOptions,
-        UserManager<ApplicationUser> userManager)
+        UserManager<ApplicationUser> userManager,
+        ICurrentUser currentUser)
     {
         _context = context;
         _jwtTokenGenerator = jwtTokenGenerator;
         _clock = clock;
         _jwtOptions = jwtOptions.Value;
         _userManager = userManager;
+        _currentUser = currentUser;
     }
 
-    public async Task<string> CreateRefreshTokenAsync(int userId, string jwtId, string ipAddress, CancellationToken cancellationToken = default)
+    public async Task<string> CreateRefreshTokenAsync(int userId, string jwtId, CancellationToken cancellationToken = default)
     {
+        var ipAddress = _currentUser.IpAddress ?? "127.0.0.1";
         var plainToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
         var hash = HashToken(plainToken);
 
@@ -73,9 +77,10 @@ public sealed class RefreshTokenService : IRefreshTokenService
         return plainToken;
     }
 
-    public async Task<ResponseResult<LoginResponseDto>> RotateTokenAsync(string plainRefreshToken, string ipAddress, CancellationToken cancellationToken = default)
+    public async Task<ResponseResult<LoginResponseDto>> RotateTokenAsync(string plainRefreshToken, CancellationToken cancellationToken = default)
     {
         var hash = HashToken(plainRefreshToken);
+        var ipAddress = _currentUser.IpAddress ?? "127.0.0.1";
 
         var tokenRecord = await _context.RefreshTokens
             .Include(rt => rt.User)
@@ -97,6 +102,25 @@ public sealed class RefreshTokenService : IRefreshTokenService
         }
 
         var user = tokenRecord.User;
+        if (!user.IsActive)
+        {
+            _context.RefreshTokens.Remove(tokenRecord);
+            try
+            {
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                // Ignored - if it's already deleted or updated, we still want to reject
+            }
+
+            return ResponseResult<LoginResponseDto>.FailureResult(
+                ResultStatus.Unauthorized,
+                "Account is inactive.",
+                401
+            );
+        }
+
         var claims = await _userManager.GetClaimsAsync(user);
         var roles = await _userManager.GetRolesAsync(user);
 
@@ -139,7 +163,7 @@ public sealed class RefreshTokenService : IRefreshTokenService
         }, "Token refreshed successfully.");
     }
 
-    public async Task<ResponseResult> RevokeTokenAsync(string plainRefreshToken, string ipAddress, CancellationToken cancellationToken = default)
+    public async Task<ResponseResult> RevokeTokenAsync(string plainRefreshToken, CancellationToken cancellationToken = default)
     {
         var hash = HashToken(plainRefreshToken);
 

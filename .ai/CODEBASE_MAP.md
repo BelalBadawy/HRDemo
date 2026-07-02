@@ -95,7 +95,7 @@ Houses Ef Core, DB Interceptors, and Identity implementations.
 - **[DependencyInjection.cs](file:///d:/_MyFolder/MyWorkSpace/HRDemo/src/HrDemo.Infrastructure/DependencyInjection.cs)**
   - Configures EF Core SQL Server, ASP.NET Core Identity Core stores, Jwt authentication options, clock registries, and pipeline interceptors.
 - **[Identity/ApplicationUser.cs](file:///d:/_MyFolder/MyWorkSpace/HRDemo/src/HrDemo.Infrastructure/Identity/ApplicationUser.cs)**
-  - Concrete Identity User model using `int` primary keys, referencing the active `RefreshToken?`.
+  - Concrete Identity User model using `int` primary keys, referencing the active `RefreshToken?`, and containing `CreatedDate` (DateTimeOffset) and `IsActive` (bool) properties.
 - **[Identity/ApplicationRole.cs](file:///d:/_MyFolder/MyWorkSpace/HRDemo/src/HrDemo.Infrastructure/Identity/ApplicationRole.cs)**
   - Concrete Identity Role model using `int` primary keys.
 - **[Identity/RefreshToken.cs](file:///d:/_MyFolder/MyWorkSpace/HRDemo/src/HrDemo.Infrastructure/Identity/RefreshToken.cs)**
@@ -132,8 +132,12 @@ The Minimal API layer hosting configuration settings and HTTP controllers.
   - Mapped Minimal API group routes (`/api/v1/auth/*`) invoking Mediator command publishers.
 - **[Extensions/ResponseResultExtensions.cs](file:///d:/_MyFolder/MyWorkSpace/HRDemo/src/HrDemo.API/Extensions/ResponseResultExtensions.cs)**
   - Maps `ResponseResult` status values to ASP.NET Core Minimal `IResult` JSON responses with appropriate HTTP status codes.
+- **[Extensions/SwaggerExtensions.cs](file:///d:/_MyFolder/MyWorkSpace/HRDemo/src/HrDemo.API/Extensions/SwaggerExtensions.cs)**
+  - Configures Swashbuckle services and middleware settings (JWT Bearer definition, XML documentation comments support).
 - **[Middleware/ExceptionHandlingMiddleware.cs](file:///d:/_MyFolder/MyWorkSpace/HRDemo/src/HrDemo.API/Middleware/ExceptionHandlingMiddleware.cs)**
   - Captures unhandled runtime errors globally, outputting a sanitized 500 error standard payload.
+- **[Middleware/SwaggerBasicAuthMiddleware.cs](file:///d:/_MyFolder/MyWorkSpace/HRDemo/src/HrDemo.API/Middleware/SwaggerBasicAuthMiddleware.cs)**
+  - Intercepts and gates Swagger endpoints and schema documents behind Basic Authentication using static credentials.
 
 ---
 
@@ -142,9 +146,9 @@ The Minimal API layer hosting configuration settings and HTTP controllers.
 - **[HrDemo.Application.UnitTests](file:///d:/_MyFolder/MyWorkSpace/HRDemo/tests/HrDemo.Application.UnitTests)**
   - Tests command handlers, input validations, and early auth gate behavior pipeline components.
 - **[HrDemo.Infrastructure.IntegrationTests](file:///d:/_MyFolder/MyWorkSpace/HRDemo/tests/HrDemo.Infrastructure.IntegrationTests)**
-  - Verifies database persistency mapping, post-commit interceptor domain event dispatch loops, and startup database permission seeding logic.
+  - Verifies database persistency mapping, post-commit interceptor domain event dispatch loops, database permission seeding logic, and identity behaviors (lockout, active checks, and refresh revocation via `IdentityServiceTests.cs`).
 - **[HrDemo.API.FunctionalTests](file:///d:/_MyFolder/MyWorkSpace/HRDemo/tests/HrDemo.API.FunctionalTests)**
-  - Verifies liveness check routes and authorization access permissions over HTTP.
+  - Verifies liveness check routes, authorization access permissions, and Swagger Basic Auth gating over HTTP.
 
 ---
 
@@ -159,4 +163,5 @@ This registry tracks the exact C# locations of central types, service registrati
 | **`BaseAuditableEntity`** | [BaseAuditableEntity.cs](file:///d:/_MyFolder/MyWorkSpace/HRDemo/src/HrDemo.Domain/Common/BaseAuditableEntity.cs#L3) | Base auditable class exposing: `CreatedAt` (`DateTimeOffset`), `CreatedBy` (`string?`), `LastModifiedAt` (`DateTimeOffset?`), and `LastModifiedBy` (`string?`). |
 | **Permission Seeding** | [PermissionSeeder.cs](file:///d:/_MyFolder/MyWorkSpace/HRDemo/src/HrDemo.Infrastructure/Identity/PermissionSeeder.cs) | Implements permission and role database seeding on application host startup, creating roles ("Admin", "User"), baseline permissions, and the default admin user. |
 | **`ToHttpResult()`** | [ResponseResultExtensions.cs](file:///d:/_MyFolder/MyWorkSpace/HRDemo/src/HrDemo.API/Extensions/ResponseResultExtensions.cs#L8) | Extension method mapping `ResponseResult` status values to ASP.NET Core Minimal `IResult` JSON responses with status codes. |
+| **Swagger Configuration** | [SwaggerExtensions.cs](file:///d:/_MyFolder/MyWorkSpace/HRDemo/src/HrDemo.API/Extensions/SwaggerExtensions.cs) | Extension methods registering Swashbuckle with JWT Bearer support and gating it via basic auth middleware in Development. |
 

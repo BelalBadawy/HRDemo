@@ -51,10 +51,10 @@ public sealed class LogoutTests
     public async Task GivenValidToken_WhenHandled_ShouldCallRevoke()
     {
         // Arrange
-        var command = new LogoutCommand("SomeToken", "127.0.0.1");
+        var command = new LogoutCommand("SomeToken");
         var successResult = ResponseResult.SuccessResult("Logged out successfully.");
 
-        _refreshTokenServiceMock.RevokeTokenAsync(command.RefreshToken, command.IpAddress, Arg.Any<CancellationToken>())
+        _refreshTokenServiceMock.RevokeTokenAsync(command.RefreshToken, Arg.Any<CancellationToken>())
             .Returns(successResult);
 
         // Act
@@ -62,6 +62,6 @@ public sealed class LogoutTests
 
         // Assert
         result.Success.Should().BeTrue();
-        await _refreshTokenServiceMock.Received(1).RevokeTokenAsync(command.RefreshToken, command.IpAddress, Arg.Any<CancellationToken>());
+        await _refreshTokenServiceMock.Received(1).RevokeTokenAsync(command.RefreshToken, Arg.Any<CancellationToken>());
     }
 }

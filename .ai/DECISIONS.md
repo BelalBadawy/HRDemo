@@ -116,3 +116,38 @@ This document details the architectural decisions and design patterns evident in
   - *Advantages*: Consolidates identity and authorization data management within the Infrastructure Identity project layer. It handles concurrent app instances safely without database unique constraint collisions.
   - *Disadvantages*: Requires explicit seeding execution logic on application start, which blocks web host initialization if database connections are slow (mitigated by crash-on-failure policy to avoid insecure startup).
 
+---
+
+## 12. Swagger Basic Auth Protection & Environment Gating
+
+- **Context**: Visual API documentation and testing via Swagger UI is extremely valuable for developers and QA engineers. However, exposing the Swagger UI or OpenAPI document schema to the public creates a security vulnerability by mapping out the API footprint.
+- **Decision**: Integrated Swashbuckle (Swagger UI) but restricted its registration and middleware to execution only in the `Development` environment. All requests matching `/swagger/*` (UI assets, pages, and the `/swagger/v1/swagger.json` document) are intercepted by a custom `SwaggerBasicAuthMiddleware` validating static credentials (`HrAdmin`/`HR@20226$`) defined in `appsettings.Development.json`.
+- **Trade-offs**:
+  - *Advantages*: Prevents public exposure of the API blueprint. Keeps developers productive in Development while ensuring complete protection. Gating both the UI pages and the raw JSON schema prevents bypassing the UI to download the blueprint directly.
+  - *Disadvantages*: Requires manual credentials configuration and prevents Swagger UI usage in other environments (e.g. staging or production) without code changes.
+
+---
+
+## 13. Identity Lockout and Active User Policies
+
+- **Context**: The identity system needs to defend against brute force attacks and allow administrators to deactivate accounts without deletion. Furthermore, deactivated users must not hold active sessions.
+- **Decision**:
+  - Configured ASP.NET Core Identity Lockout: 5 failed attempts, 15 minutes lockout duration, enabled for new users by default.
+  - Added `IsActive` (bool) and `CreatedDate` (DateTimeOffset) properties to `ApplicationUser`.
+  - Implemented account harvesting protection by performing a strict checking order at Login: Find user first (if null, return 401 "Invalid username or password."), then call `CheckPasswordSignInAsync`, then check lockout, and check `IsActive` only after a successful password verification.
+  - Enforced `IsActive` verification during Refresh Token rotation. If the user is inactive at refresh time, the rotation fails and the user's stored refresh token row is immediately deleted (revoking the session).
+- **Trade-offs**:
+  - *Advantages*: High security against password guessing and immediate revocation of active sessions for suspended users. Distinct error responses ensure users understand why their access is blocked.
+  - *Disadvantages*: Requires tracking lockout count on the database and revoking refresh tokens on a separate write operation during a read-refresh request.
+
+---
+
+## 14. Transport Gating for Client IP Address (Architectural Win)
+
+- **Context**: The Single Refresh Token Policy tracks client IP addresses (`CreatedByIp`). However, passing IP addresses through CQRS command payloads (`LoginCommand`) leaks transport-layer details (HTTP HttpContext) into the Application layer, violating Clean Architecture principles.
+- **Decision**: Removed `IpAddress` from all CQRS command payloads (`LoginCommand`, `RefreshCommand`, `LogoutCommand`). Instead, exposed the IP address on `ICurrentUser` interface (`IpAddress` property) and implemented it in the Infrastructure layer `CurrentUser` class using `IHttpContextAccessor`. The `RefreshTokenService` (Infrastructure) reads it directly from `ICurrentUser` during token operations.
+- **Trade-offs**:
+  - *Advantages*: Maintains a clean separation of concerns. The Application layer commands remain transport-agnostic (can be invoked from queue processors, gRPC, CLI, etc., without requiring fake IP arguments).
+  - *Disadvantages*: Requires resolving `IHttpContextAccessor` in the CurrentUser dependency chain.
+
+

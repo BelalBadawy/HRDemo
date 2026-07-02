@@ -97,7 +97,8 @@ Before writing any code, you MUST:
 Do NOT proceed to Phase 1 or write any implementation code until the user has approved the plan.
 
 Phase 1: Pre-Implementation
-- Read every file under .ai/.
+- Read every file under `.ai/`.
+- **Search the `.agents/skills/` folder to check if there is an existing skill file relevant to the current task. If a relevant skill file exists, read it thoroughly and strictly follow its instructions.**
 - Compare documentation with source code.
 - If inconsistencies exist: Update documentation first.
 
@@ -129,6 +130,7 @@ The agent must refuse to finish unless:
 
 # Hard rules
 
+- **Always search the `.agents/skills/` folder for existing skill files related to the current task before planning or implementing. If a relevant skill file is found, you must read and follow it.**
 - Never start coding without a detailed plan and task breakdown. You must get explicit user approval for the plan before implementing anything.
 - No MediatR, no AutoMapper/Mapster, no Controllers, no ProblemDetails, no Guid keys, no `.sln` — see the table above.
 - Don't put EF Core or Identity types in `HrDemo.API` or `HrDemo.Application` — only in `HrDemo.Infrastructure`, exposed through interfaces.

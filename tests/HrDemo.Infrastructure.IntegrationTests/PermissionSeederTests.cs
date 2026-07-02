@@ -45,6 +45,7 @@ public sealed class PermissionSeederTests : IAsyncLifetime
         services.AddSingleton<IConfiguration>(configuration);
         services.AddDataProtection();
         services.AddLogging();
+        services.AddSingleton<HrDemo.Application.Abstractions.DateTime.IClock, HrDemo.Infrastructure.Services.SystemClock>();
 
         // Database context
         services.AddDbContext<ApplicationDbContext>(options =>

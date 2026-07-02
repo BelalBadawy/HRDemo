@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
 using HrDemo.API.Middleware;
 using HrDemo.API.Endpoints;
+using HrDemo.API.Extensions;
 using HrDemo.Application;
 using HrDemo.Infrastructure;
 using HrDemo.Infrastructure.Persistence;
@@ -20,6 +21,7 @@ builder.Services
 
 builder.Services.AddResponseCompression();
 builder.Services.AddControllers();
+builder.Services.AddSwaggerConfiguration();
 
 builder.Services.AddAuthorization(options =>
 {
@@ -54,6 +56,7 @@ builder.Services.AddOpenApi(options =>
 var app = builder.Build();
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
+app.UseSwaggerConfiguration(app.Environment);
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

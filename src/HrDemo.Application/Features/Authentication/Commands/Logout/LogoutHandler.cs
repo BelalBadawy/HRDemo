@@ -15,6 +15,6 @@ public sealed class LogoutHandler : IRequestHandler<LogoutCommand, ResponseResul
 
     public async ValueTask<ResponseResult> Handle(LogoutCommand request, CancellationToken cancellationToken)
     {
-        return await _refreshTokenService.RevokeTokenAsync(request.RefreshToken, request.IpAddress, cancellationToken);
+        return await _refreshTokenService.RevokeTokenAsync(request.RefreshToken, cancellationToken);
     }
 }
