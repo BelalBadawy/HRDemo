@@ -65,6 +65,8 @@ This document outlines the coding patterns, architectural constraints, naming co
 - **Hashed Refresh Tokens**: Rotating session keys must be cryptographically hashed (using SHA256) before storing them in the database (`TokenHash` column). Plaintext refresh tokens are never persisted or logged.
 - **Concurrency Protection**: The `RefreshToken` entity has a `RowVersion` byte array configured as a concurrency token (`IsRowVersion()` in EF Core config). Concurrency update conflicts throw a `DbUpdateConcurrencyException` which is caught in the rotation service and returned as a 409 Conflict.
 - **Permission Policy**: Gated routes use claims-based permissions (e.g. `permission: roles.assign`). Endpoints call `.RequireAuthorization("policyName")` mapping to an authorization policy requiring the `"permission"` claim.
+- **Swagger UI Protection**: In the `Development` environment, the Swagger UI and OpenAPI schema (under `/swagger/*`) are gated behind a custom Basic Authentication middleware (`SwaggerBasicAuthMiddleware`) using static credentials. Swagger is disabled in other environments to prevent API blueprint exposure.
+- **Swagger JWT Support**: Swagger is configured with a global JWT Bearer security scheme definition to support authorized endpoint testing directly within the UI.
 
 ---
 

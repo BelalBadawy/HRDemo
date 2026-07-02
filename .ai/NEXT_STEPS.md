@@ -49,6 +49,12 @@ This document outlines the active backlog and planned roadmap for the **HrDemo**
   - Configured startup wiring in `Program.cs` to seed roles, admin user, and permission claims on startup.
   - Added comprehensive integration tests to prevent regression and verify idempotency.
 
+- **Swagger UI Integration & Basic Auth Protection** (Completed):
+  - Integrated `Swashbuckle.AspNetCore` into the API project, gated exclusively to the `Development` environment.
+  - Implemented `SwaggerBasicAuthMiddleware` to protect UI assets and schema documents with static configuration credentials.
+  - Configured Swagger UI with JWT Bearer support for authorized testing.
+  - Suppressed compiler warning CS1591 and generated API XML comments.
+
 - **Dockerization**:
   - Add a multi-stage `Dockerfile` to compile and package the API project.
   - Create a `docker-compose.yml` file configuring the SQL Server database and API container for local execution.

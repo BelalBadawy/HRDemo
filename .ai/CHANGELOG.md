@@ -5,6 +5,19 @@ All notable changes to the **HrDemo** project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-07-02
+
+### Added
+- Integrated `Swashbuckle.AspNetCore` into the API project to generate visual OpenAPI documentation.
+- Created `SwaggerBasicAuthMiddleware.cs` inside `src/HrDemo.API/Middleware/` to protect all `/swagger/*` routes (including UI assets and the raw OpenAPI JSON document) behind Basic Authentication.
+- Created `SwaggerExtensions.cs` inside `src/HrDemo.API/Extensions/` to encapsulate service registrations and middleware wiring, enabling JWT Bearer token testing in the UI.
+- Created `SwaggerAuthTests.cs` inside `tests/HrDemo.API.FunctionalTests/` to test Basic Authentication credentials, verifying unauthorized access returns `401 Unauthorized` while correct credentials return `200 OK`.
+
+### Changed
+- Configured static username and password settings under the `SwaggerAuth` section in `appsettings.Development.json`.
+- Enabled compile-time XML documentation generation and suppressed CS1591 warnings inside `src/HrDemo.API/HrDemo.API.csproj`.
+- Wired up Swagger services registration and middleware gating inside `src/HrDemo.API/Program.cs` to run exclusively in the `Development` environment.
+
 ## [1.1.0] - 2026-07-02
 
 ### Added

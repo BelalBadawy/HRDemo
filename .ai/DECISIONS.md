@@ -116,3 +116,13 @@ This document details the architectural decisions and design patterns evident in
   - *Advantages*: Consolidates identity and authorization data management within the Infrastructure Identity project layer. It handles concurrent app instances safely without database unique constraint collisions.
   - *Disadvantages*: Requires explicit seeding execution logic on application start, which blocks web host initialization if database connections are slow (mitigated by crash-on-failure policy to avoid insecure startup).
 
+---
+
+## 12. Swagger Basic Auth Protection & Environment Gating
+
+- **Context**: Visual API documentation and testing via Swagger UI is extremely valuable for developers and QA engineers. However, exposing the Swagger UI or OpenAPI document schema to the public creates a security vulnerability by mapping out the API footprint.
+- **Decision**: Integrated Swashbuckle (Swagger UI) but restricted its registration and middleware to execution only in the `Development` environment. All requests matching `/swagger/*` (UI assets, pages, and the `/swagger/v1/swagger.json` document) are intercepted by a custom `SwaggerBasicAuthMiddleware` validating static credentials (`HrAdmin`/`HR@20226$`) defined in `appsettings.Development.json`.
+- **Trade-offs**:
+  - *Advantages*: Prevents public exposure of the API blueprint. Keeps developers productive in Development while ensuring complete protection. Gating both the UI pages and the raw JSON schema prevents bypassing the UI to download the blueprint directly.
+  - *Disadvantages*: Requires manual credentials configuration and prevents Swagger UI usage in other environments (e.g. staging or production) without code changes.
+
