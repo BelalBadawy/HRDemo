@@ -47,6 +47,7 @@ This document outlines the coding patterns, architectural constraints, naming co
   - `Errors` (IDictionary<string, string[]>?): Field-specific validation failures.
   - `Data` (T?): The payload (for generic results).
 - **HTTP Mapping**: API endpoints convert a `ResponseResult` into an `IResult` using the `result.ToHttpResult()` extension method defined in `ResponseResultExtensions.cs`. This serializes the result wrapper as JSON and attaches the corresponding HTTP status code.
+- **Enum Serialization**: Enums in API responses (specifically `ResultStatus` in the `Status` property) are serialized as string values (e.g., `"ValidationError"`, `"Unauthorized"`) rather than integers. This is configured via the `[JsonConverter(typeof(JsonStringEnumConverter))]` attribute on the enum declaration.
 
 ---
 

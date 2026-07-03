@@ -150,4 +150,15 @@ This document details the architectural decisions and design patterns evident in
   - *Advantages*: Maintains a clean separation of concerns. The Application layer commands remain transport-agnostic (can be invoked from queue processors, gRPC, CLI, etc., without requiring fake IP arguments).
   - *Disadvantages*: Requires resolving `IHttpContextAccessor` in the CurrentUser dependency chain.
 
+---
+
+## 15. String Enum Serialization for ResponseResult Status
+
+- **Context**: The `ResponseResult` status field represents enum options defined in `ResultStatus`. By default, these values were serialized as integers in JSON responses (e.g., `2` for `Unauthorized`), making them difficult to understand for client developers and API consumers without mapping documentation.
+- **Decision**: Decorated the `ResultStatus` enum itself with `[JsonConverter(typeof(JsonStringEnumConverter))]`. This forces System.Text.Json to serialize the enum as strings (e.g., `"ValidationError"`, `"Unauthorized"`) universally.
+- **Trade-offs**:
+  - *Advantages*: Significantly improves API readability, debuggability, and clarity. Self-documenting JSON payloads. Fully compatible with bidirectional deserialization in functional tests.
+  - *Disadvantages*: Increases payload size by a few bytes per request (negligible).
+
+
 

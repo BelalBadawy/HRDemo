@@ -1,0 +1,262 @@
+Stage 1: Brainstorming a Feature or Product
+I want to build: <one-line description of the feature or app>.
+
+Enter plan mode. Before proposing anything, ask me clarifying
+questions about users, scale, existing systems, and constraints. Wait
+for my answers. Then give me candidate approaches with honest
+tradeoffs and the one you would actually pick.
+
+Rules:
+- Do NOT write code or create files in this session.
+- Do NOT assume greenfield. Ask what already exists first.
+- Do NOT pad the list with approaches you would never recommend.
+- Do NOT agree with my framing by default. If a simpler version ships
+  80% of the value, argue for it.
+
+
+  ############################################################
+
+  Stage 2: Tech Research Without Stale Answers
+  I need to pick a library for <problem, e.g. background jobs in an
+ASP.NET Core API>.
+
+Research the current options using web search, official docs, and
+GitHub. For each candidate report: latest stable version, .NET 10
+compatibility, license, release cadence over the last 12 months, and
+open-issue health. Output a comparison table, then a one-paragraph
+recommendation for my context: <team size, hosting, constraints>.
+
+Rules:
+- Do NOT quote version numbers or feature claims from memory. Your
+  training data is stale by definition. Verify every fact.
+- Do NOT list more than 4 candidates. Shortlist like a senior dev.
+- Do NOT recommend a package with no release in the past year unless
+  it is genuinely feature-complete, and say so if it is.
+- If two options are effectively tied, say they are tied. Do NOT
+  invent a winner.
+
+  #########################################################
+
+  Stage 3: Which Architecture Fits This App
+
+  Help me choose the architecture for a new .NET 10 application.
+
+The app: <one-paragraph description>.
+Team: <n> developers, <experience level>.
+Deployment: <single server / containers / cloud PaaS>.
+Domain: <CRUD-heavy / rich business rules / heavy integrations>.
+
+Compare Vertical Slice Architecture, Clean Architecture, and a Modular
+Monolith for THIS app specifically. Score each on: time to first
+feature, onboarding cost, testability, and resilience to changing
+requirements. End with one recommendation and the folder tree it
+implies.
+
+Rules:
+- Do NOT evaluate microservices. Out of scope for this decision.
+- Do NOT default to Clean Architecture because it is popular. Justify
+  every layer you propose against my actual requirements.
+- Do NOT propose abstractions for problems I have not described.
+- Do NOT write code. Reasoning and structure only.
+- If my requirements do not justify the ceremony, say "this is
+  overkill" out loud. I want the honest answer, not the impressive one.
+
+
+  ######################################################################
+
+
+  Stage 4: Scaffolding the Baseline Solution
+
+  Scaffold the baseline solution for <AppName> using the architecture we
+agreed on: <vertical slice / clean architecture / modular monolith>.
+
+Stack: .NET 10, ASP.NET Core Minimal APIs, EF Core 10, xUnit v3.
+Solution format: .slnx. API reference UI: Scalar via AddOpenApi() and
+MapScalarApiReference().
+
+Steps:
+1. Show me the full folder tree first. STOP and wait for my approval.
+2. Create projects with the dotnet CLI, wire references, and enable
+   Nullable + TreatWarningsAsErrors in Directory.Build.props.
+3. Add exactly one health endpoint. Nothing else.
+4. Run dotnet build and show me the output.
+
+Rules:
+- Do NOT add Swashbuckle or Swagger UI. Scalar only.
+- Do NOT add MediatR, AutoMapper, or a repository layer. Patterns get
+  decided per feature, not preinstalled.
+- Do NOT create WeatherForecast or any demo entities.
+- Do NOT install any package outside the stack above without asking.
+
+
+###########################################################################
+
+
+Stage 5: Cross-Cutting Concerns in One Pass
+
+Set up cross-cutting concerns for this solution. Read the Program file
+and folder structure first so everything lands where it belongs.
+
+1. Global exception handling with IExceptionHandler, returning RFC 9457
+   ProblemDetails responses.
+2. Serilog structured logging: console sink in Development, JSON in
+   Production, request logging middleware enabled.
+3. FluentValidation wired into the endpoint pipeline, returning 400
+   ProblemDetails with field-level errors.
+4. When done, throw a test exception from the health endpoint, call it,
+   show me the ProblemDetails JSON, then remove the test throw.
+
+Rules:
+- Do NOT put try/catch in endpoints or handlers. The exception handler
+  owns errors.
+- Do NOT swallow exceptions and return 200. Fail loudly.
+- Do NOT log request bodies, tokens, or connection strings.
+- Do NOT write custom middleware where ASP.NET Core ships a built-in.
+
+
+##########################################################################
+
+Stage 6: Database Persistence with EF Core
+
+Add EF Core 10 persistence to this solution with PostgreSQL.
+
+Read the existing entities and features first. Then:
+1. Create the DbContext with one IEntityTypeConfiguration class per
+   entity. No giant OnModelCreating.
+2. Configure table names, max length on every string column, and
+   indexes for the query patterns visible in the code.
+3. Add the initial migration and show me the SQL via
+   dotnet ef migrations script BEFORE anything touches a database.
+4. Wire the connection string through configuration. No literals.
+
+Rules:
+- Do NOT use EnsureCreated. Migrations are the only schema path.
+- Do NOT enable lazy loading proxies.
+- Do NOT return IQueryable from any public method.
+- Do NOT omit CancellationToken. Every async EF call accepts one.
+- Read-only queries use AsNoTracking unless the handler mutates the
+  entity.
+
+  #########################################################################
+
+  Stage 7: Adding a Feature to an Existing Codebase
+
+  Add a new feature: <one-line description, e.g. "customers can cancel
+an order that has not shipped yet">.
+
+Before writing anything, read the most recent feature folder end to
+end - endpoint, handler, validator, tests - and list the conventions
+you see. Follow them exactly.
+
+Then implement: request/response contracts, validation, the handler
+with the real business rules, endpoint mapping, and DI registration.
+Business rules to enforce: <rule 1>, <rule 2>.
+Finish with tests that prove each rule.
+
+Rules:
+- Do NOT introduce a new pattern, package, or folder convention. Match
+  what exists even where you disagree, and list objections at the end.
+- Do NOT touch unrelated files. If a refactor is tempting, note it,
+  don't do it.
+- Do NOT leave business rules as TODO stubs. Implement them.
+- Do NOT report done until dotnet build and dotnet test both pass.
+
+########################################################################
+
+Stage 8: Unit Tests That Earn Their Keep
+
+Write unit tests for <class or handler>. xUnit v3. Prefer real objects
+and hand-rolled fakes; reach for a mocking library only when an
+interface genuinely needs it.
+
+Cover: the happy path, every business-rule rejection, and the edge
+cases a reviewer would probe - empty collections, boundary values,
+cancelled tokens. Name tests Method_Scenario_ExpectedOutcome.
+
+Rules:
+- Do NOT test the framework. No tests proving EF Core saves data or
+  FluentValidation validates.
+- Do NOT assert on log output or private state. Observable behavior
+  only.
+- Do NOT share mutable state between tests.
+- Do NOT write one giant [Fact] with ten asserts. One behavior per
+  test.
+- If the class is hard to test, STOP and tell me. That is a design
+  smell to fix, not a mocking puzzle to solve.
+
+
+  #######################################################################
+
+
+  Stage 9: Integration Tests with a Real Database
+
+  Set up integration tests for this API using WebApplicationFactory and
+Testcontainers for PostgreSQL.
+
+1. One shared collection fixture: starts the Postgres container, runs
+   EF Core migrations, exposes a configured HttpClient.
+2. Per-test isolation by resetting tables between tests. Do not spin
+   up a container per test.
+3. Write tests for <endpoint>: the success case, a validation failure
+   asserting the ProblemDetails body, and an unauthorized request.
+4. Run the suite and show me the summary.
+
+Rules:
+- Do NOT use the EF Core InMemory provider. Real database or nothing.
+- Do NOT arrange test data through the API under test. Seed through
+  the DbContext directly.
+- Do NOT assert on status codes alone. Assert response bodies.
+- Do NOT leave orphaned containers. The fixture owns the lifecycle.
+
+########################################################################
+
+Stage 10: Wiring Up Aspire
+
+Add Aspire orchestration to this solution.
+
+1. Create the AppHost and ServiceDefaults projects. Verify the latest
+   stable Aspire package versions on NuGet first - do not trust memory.
+2. Move PostgreSQL into the AppHost as a container resource and pass
+   it to the API with WithReference. Delete the connection string from
+   the appsettings file.
+3. Wire ServiceDefaults into the API: OpenTelemetry, health checks,
+   service discovery, resilience handlers.
+4. Run the AppHost and confirm the dashboard shows a trace for one API
+   request that hits the database. Show me evidence.
+
+Rules:
+- Do NOT keep the old connection string as a fallback. One source of
+  truth.
+- Do NOT add Docker Compose or Kubernetes manifests. Aspire owns local
+  orchestration.
+- Do NOT skip the dashboard verification. "It builds" is not "it
+  works".
+
+  ###################################################################
+
+  Stage 11: The Modernization Audit
+
+  Audit this solution against current .NET best practices. Report only.
+Change nothing.
+
+Check: target frameworks, output of dotnet list package --outdated
+(actually run it), deprecated or abandoned packages, obsolete API
+usage, nullable annotation gaps, sync-over-async and missing
+CancellationToken, and C# 14 features that would genuinely simplify
+existing code.
+
+Output a table: finding, file, risk, effort, recommendation. Then STOP
+so I can pick what gets fixed.
+
+Rules:
+- Do NOT fix anything in this pass. Report only.
+- Do NOT flag style preferences as findings. Working idiomatic code is
+  not a defect.
+- Do NOT recommend a major version bump without listing its breaking
+  changes.
+- Do NOT trust training data for "latest" versions. Verify against the
+  CLI output and nuget.org.
+
+  ########################################################################
+
+  
